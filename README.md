@@ -78,4 +78,8 @@ tools/                           alat bantu Huawei (laporan & perbaikan ACL web 
 ## Kredit
 
 - Ide multi-tab terinspirasi dari [alijayanet/genieacs-multitab-mod](https://github.com/alijayanet/genieacs-multitab-mod). Banyak Virtual Parameter berawal dari skrip komunitas ALIJAYA-NET, lalu diperbaiki untuk Nokia, ZTE, FiberHome, dan C-Data.
-- [GenieACS](https://genieacs.com) © GenieACS Inc., berlisensi AGPLv3.
+- [GenieACS](https://genieacs.com) © GenieACS Inc., berlisensi AGPLv3 (tidak disertakan di repo ini).
+
+## Lisensi
+
+[MIT](LICENSE) © 2026 s4lfanet. Bebas dipakai, diubah, dan dibagikan, dengan tetap mencantumkan lisensi. Tanpa garansi: selalu uji di beberapa ONT dulu sebelum menerapkan ke semua.
