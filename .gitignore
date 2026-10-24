@@ -1,0 +1,9 @@
+backups/
+*.archive
+*.archive.gz
+bot/config.json
+bot/state.json
+node_modules/
+.DS_Store
+Thumbs.db
+bot/audit.log

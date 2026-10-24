@@ -1,0 +1,46 @@
+[
+ {
+  "_id": "bot.enabled",
+  "value": "'true'"
+ },
+ {
+  "_id": "bot.telegram.token",
+  "value": "'ISI_TOKEN_DARI_BOTFATHER'"
+ },
+ {
+  "_id": "bot.telegram.allowedChatIds",
+  "value": "'123456789'"
+ },
+ {
+  "_id": "bot.alert.chatIds",
+  "value": "'123456789'"
+ },
+ {
+  "_id": "bot.alert.everyMinutes",
+  "value": "10"
+ },
+ {
+  "_id": "bot.alert.faultThreshold",
+  "value": "20"
+ },
+ {
+  "_id": "bot.actions.enabled",
+  "value": "'false'"
+ },
+ {
+  "_id": "bot.ai.enabled",
+  "value": "'false'"
+ },
+ {
+  "_id": "bot.ai.apiKey",
+  "value": "''"
+ },
+ {
+  "_id": "bot.ai.model",
+  "value": "'claude-opus-5-5'"
+ },
+ {
+  "_id": "bot.ai.dailyLimit",
+  "value": "50"
+ }
+]
