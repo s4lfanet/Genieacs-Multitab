@@ -35,7 +35,7 @@ Kalau risiko di atas tidak bisa diterima, pakai [bot Telegram](TELEGRAM-BOT.md) 
 | Key | Contoh |
 |---|---|
 | `wabot.enabled` | `'true'` |
-| `wabot.allowedNumbers` | `'6281234567890, 6289876543210'` (format internasional tanpa `+`, kosong = semua ditolak) |
+| `wabot.allowedNumbers` | `'081234567890, 6289876543210'` (format 08.., 62.., atau +62.. semua diterima; kosong = semua diabaikan) |
 | `wabot.actions.enabled` | `'false'` (ubah ke `'true'` untuk ubah SSID/password/reboot) |
 | `wabot.alert.numbers` / `wabot.alert.everyMinutes` / `wabot.alert.faultThreshold` | opsional, sama seperti `bot.alert.*` di Telegram |
 | `wabot.httpPort` | opsional, port halaman scan QR (default `3010`, perlu restart service) |

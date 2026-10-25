@@ -143,7 +143,7 @@ load();
 function loadConfig() {
   const g = readGenieConfig();
   const pick = (key, fallback) => (g[key] !== undefined && g[key] !== "" ? g[key] : fallback);
-  const allowed = list(g["wabot.allowedNumbers"]); // format: 62812xxxxxxx (tanpa +, tanpa spasi)
+  const allowed = list(g["wabot.allowedNumbers"]).map(normNum).filter((x) => x); // 0812.. / +62 812.. / 62812.. semua diterima
   return {
     enabled: String(pick("wabot.enabled", "false")).toLowerCase() === "true",
     allowedNumbers: allowed,
@@ -164,6 +164,13 @@ function loadConfig() {
 }
 
 function numFromJid(jid) { return String(jid || "").replace(/@.*/, "").replace(/^\+/, ""); }
+// Samakan format nomor: "0822-1453-5152", "+62 822...", "822..." -> "6282214535152"
+function normNum(s) {
+  let d = String(s || "").replace(/[^0-9]/g, "");
+  if (d.indexOf("0") === 0) d = "62" + d.slice(1);
+  else if (d.indexOf("8") === 0) d = "62" + d;
+  return d;
+}
 
 const HELP_WA = HELP +
   "\n\nKonfirmasi aksi (ubahssid/ubahpass/reboot): balas *ya* untuk menyetujui, *batal* untuk membatalkan.";
@@ -171,8 +178,8 @@ const HELP_WA = HELP +
 // lacak 1 pending terakhir per chat, supaya cukup balas "ya"/"batal" tanpa kode
 const lastPendingByChat = {};
 
-async function handleText(cfg, sock, jid, text) {
-  const num = numFromJid(jid);
+async function handleText(cfg, sock, jid, text, phone) {
+  const num = normNum(phone || numFromJid(jid));
   if (cfg.allowedNumbers.indexOf(num) < 0) {
     // Diam saja (tidak membalas): nomor bot sering nomor WA biasa yang juga dipakai chat dengan
     // pelanggan/kontak lain -- jangan sampai mereka menerima balasan otomatis. Cukup dicatat di log.
@@ -302,7 +309,10 @@ async function connect() {
         if (!jid || jid.endsWith("@g.us") || jid === "status@broadcast") continue; // abaikan grup & status
         const text = (m.message && (m.message.conversation || (m.message.extendedTextMessage && m.message.extendedTextMessage.text))) || "";
         if (!text.trim()) continue;
-        await handleText(cfg, sock, jid, text.trim()).catch((e) => log("WA handle", e.message));
+        // WhatsApp baru kadang memakai ID samaran "@lid" sebagai pengirim; nomor HP aslinya ada di senderPn
+        const phone = jid.endsWith("@lid") ? numFromJid(m.key.senderPn || m.key.participantPn || "") : numFromJid(jid);
+        if (!phone) { log("WA diabaikan: pengirim @lid tanpa nomor HP", jid); continue; }
+        await handleText(cfg, sock, jid, text.trim(), phone).catch((e) => log("WA handle", e.message));
       } catch (e) { log("WA pesan error", e.message); }
     }
   });
