@@ -1,0 +1,19 @@
+[Unit]
+Description=GenieACS WhatsApp bot (Baileys)
+After=network-online.target genieacs-nbi.service
+Wants=network-online.target
+
+[Service]
+User=USERNAME
+Group=USERNAME
+WorkingDirectory=/home/USERNAME/genieacs-bot
+Environment=HOME=/home/USERNAME
+ExecStart=/opt/node20/bin/node /home/USERNAME/genieacs-bot/wa.js
+Restart=on-failure
+RestartSec=15
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

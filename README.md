@@ -22,7 +22,9 @@ Semuanya dipasang lewat **data MongoDB** (Config, Virtual Parameters, Provisions
 | **Admin Web + ACS** | User/password web ONT (user & superadmin), URL ACS, user/pass ACS, connection request, interval inform, dengan tombol Summon. |
 | **29 Virtual Parameter** | RX power/redaman, suhu, mode PON, uptime, PPPoE (user/IP/password), SSID aktif + jumlah client, user/superadmin web ONT lintas merk (termasuk Nokia/ALCL). |
 | **Branding** | Ganti logo dari **Admin → Files**, judul/subtitle/warna header dari **Admin → Config** (`branding.*`). |
-| **Bot Telegram** (opsional) | Cek ONT, cari pelanggan, ONT offline, redaman buruk, fault, ganti SSID/password WiFi, refresh, reboot (dengan konfirmasi), alert fault, dan asisten AI (Claude) yang hanya membaca. |
+| **Bot Telegram** (opsional) | Cek ONT, cari pelanggan, ONT offline, redaman buruk, fault, ganti SSID/password WiFi, refresh, reboot (dengan konfirmasi), alert fault, dan asisten AI yang hanya membaca. |
+| **Bot WhatsApp** (opsional) | Perintah sama persis dengan bot Telegram (lewat Baileys/scan QR — baca risikonya di [docs/WHATSAPP-BOT.md](docs/WHATSAPP-BOT.md) sebelum pasang). |
+| **Asisten AI multi-provider** | `/tanya` bisa pakai Claude langsung, atau [OpenRouter](https://openrouter.ai)/OpenAI/endpoint OpenAI-compatible lain — ganti provider dari Admin → Config, tanpa restart bot. |
 | **Provision opsional** | Setel ACS/inform, paksa user/password web ONT, buka web ONT dari WAN, buat WAN PPPoE di Nokia. |
 
 ## Instal cepat
@@ -53,7 +55,8 @@ Panduan lengkap ada di **[docs/INSTALL.md](docs/INSTALL.md)**.
 | [docs/MULTITAB.md](docs/MULTITAB.md) | Cara kerja tab, daftar isi tiap tab, cara menambah tab/bagian |
 | [docs/PROVISIONS-VP.md](docs/PROVISIONS-VP.md) | Daftar Virtual Parameter & provision, preset opsional, catatan per merk |
 | [docs/BRANDING.md](docs/BRANDING.md) | Ganti logo, judul, warna header |
-| [docs/TELEGRAM-BOT.md](docs/TELEGRAM-BOT.md) | Bot Telegram & asisten AI |
+| [docs/TELEGRAM-BOT.md](docs/TELEGRAM-BOT.md) | Bot Telegram, perintah, & asisten AI (multi-provider) |
+| [docs/WHATSAPP-BOT.md](docs/WHATSAPP-BOT.md) | Bot WhatsApp (opsional) — baca risikonya sebelum pasang |
 | [docs/BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md) | Backup/restore config & database |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Masalah umum dan pelajaran dari produksi |
 
@@ -70,8 +73,11 @@ scripts/create-admin.sh          buat/reset user admin + izin penuh (GenieACS fr
 scripts/backup.sh, restore.sh    backup/restore koleksi GenieACS
 scripts/setup-branding.sh        pasang sinkron logo/judul (sudo sekali + cron)
 scripts/setup-bot.sh             pasang bot Telegram sebagai service systemd
+scripts/setup-wa-bot.sh          pasang bot WhatsApp opsional (Node 20 terpisah + npm, lihat docs/WHATSAPP-BOT.md)
 branding/branding.js             script sinkron branding
+bot/core.js                      logic inti bot (perintah, AI), dipakai bot.js & wa.js
 bot/bot.js                       bot Telegram (Node 12+, tanpa npm)
+bot/wa.js                        bot WhatsApp opsional (Baileys, butuh Node 20+ & npm, lihat docs/WHATSAPP-BOT.md)
 tools/                           alat bantu Huawei (laporan & perbaikan ACL web WAN)
 ```
 

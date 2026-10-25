@@ -1,6 +1,6 @@
 # Bot Telegram GenieACS
 
-`bot/bot.js` adalah bot Telegram satu file: Node 12+, tanpa npm. Bot memakai NBI GenieACS (`127.0.0.1:7557`). Pengaturannya dibaca dari **Admin → Config** (`bot.*`) dan dibaca ulang setiap loop, jadi tidak perlu restart setelah mengubah setting.
+`bot/bot.js` + `bot/core.js`: Node 12+, tanpa npm. Logic inti (`core.js`) dipakai bersama dengan [bot WhatsApp](WHATSAPP-BOT.md) (`wa.js`). Bot memakai NBI GenieACS (`127.0.0.1:7557`). Pengaturannya dibaca dari **Admin → Config** (`bot.*`) dan dibaca ulang setiap loop, jadi tidak perlu restart setelah mengubah setting.
 
 ## Perintah
 
