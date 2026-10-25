@@ -78,6 +78,12 @@ function cookie(req, name) {
   return m ? decodeURIComponent(m.slice(name.length + 1)) : null;
 }
 
+// Halaman ada di wa-page.html (dibaca ulang tiap permintaan supaya edit tampilan tidak perlu restart)
+function pageHtml() {
+  try { return fs.readFileSync(path.join(__dirname, "wa-page.html"), "utf8"); }
+  catch (e) { return "<meta charset=utf-8><p>wa-page.html tidak ditemukan di " + __dirname + " -- jalankan ulang scripts/setup-wa-bot.sh</p>"; }
+}
+
 function startHttp(port) {
   const secret = process.env.GENIEACS_UI_JWT_SECRET;
   if (!secret) log("PERINGATAN: GENIEACS_UI_JWT_SECRET tidak terbaca -- halaman QR web dimatikan (lihat docs/WHATSAPP-BOT.md).");
@@ -123,52 +129,7 @@ function startHttp(port) {
     }
     if (url !== "/") { res.writeHead(404); return res.end(); }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-    res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bot WhatsApp - GenieACS</title>
-<style>body{font-family:system-ui,sans-serif;background:#f2eddf;margin:0;padding:24px;color:#2d3748}
-.card{max-width:460px;margin:0 auto;background:#fff;border-radius:10px;padding:24px;box-shadow:0 2px 10px #0002;text-align:center}
-#qr{width:300px;max-width:100%;image-rendering:pixelated}.ok{color:#2f855a;font-size:20px;font-weight:700}.muted{color:#718096;font-size:14px}
-button{font-size:16px;padding:10px 18px;margin:6px;border-radius:6px;border:1px solid #2b6cb0;background:#2b6cb0;color:#fff;cursor:pointer}
-button.alt{background:#fff;color:#2b6cb0}button:disabled{opacity:.5;cursor:default}
-.card+.card{margin-top:14px}.sum{text-align:left}.sum table{width:100%;border-collapse:collapse;font-size:14px}
-.sum td{padding:6px 4px;border-bottom:1px solid #f1eee6}.sum td:first-child{color:#718096;width:55%}
-.y{color:#2f855a;font-weight:600}.n{color:#c53030;font-weight:600}.edit{display:inline-block;margin-top:10px;color:#2b6cb0;font-size:14px}</style>
-<div class="card"><h2>📱 Bot WhatsApp</h2><div id="st" class="muted">Memuat…</div><div id="box"></div>
-<div><button id="rf" onclick="load();loadSum()">🔄 Refresh</button><button id="nq" class="alt" onclick="newQr()" style="display:none">Minta QR baru</button></div>
-<p class="muted">Di HP: WhatsApp → <b>Perangkat Tertaut</b> → <b>Tautkan Perangkat</b>, lalu arahkan kamera ke QR.<br>
-QR dari WhatsApp hanya berlaku ±20 detik. Kalau gagal scan, klik <b>🔄 Refresh</b> untuk QR terbaru.<br>
-Setelah scan berhasil, klik <b>🔄 Refresh</b> untuk melihat status tersambung.</p>
-<p class="muted">Login sebagai: ${String(user === true ? "-" : user).replace(/[<>&]/g, "")}</p></div>
-<div class="card sum"><h3>📱 Pengaturan WhatsApp</h3><table id="s-wa"></table><a class="edit cfg" data-q="wabot" target="_top">✎ Ubah di Admin → Config</a></div>
-<div class="card sum"><h3>✈️ Bot Telegram</h3><table id="s-tg"></table><a class="edit cfg" data-q="bot.telegram" target="_top">✎ Ubah di Admin → Config</a></div>
-<div class="card sum"><h3>🧠 Asisten AI</h3><table id="s-ai"></table><a class="edit cfg" data-q="bot.ai" target="_top">✎ Ubah di Admin → Config</a></div>
-<p class="muted" style="text-align:center">Ringkasan hanya-baca. Klik ✎, lalu ketik kata yang disebutkan di kolom <b>Search config</b>.</p>
-<script>
-// alamat GenieACS: dari halaman induk (menu Admin -> Bot) atau port 3000 di host yang sama
-const GA=(()=>{try{if(document.referrer){const u=new URL(document.referrer);return u.origin;}}catch(e){}return location.protocol+"//"+location.hostname+":3000";})();
-document.querySelectorAll("a.cfg").forEach(a=>{a.href=GA+"/#!/admin/config";a.title="Ketik '"+a.dataset.q+"' di Search config";a.textContent+=" (cari: "+a.dataset.q+")";});
-const yn=(v,t,f)=>'<span class="'+(v?'y':'n')+'">'+(v?(t||'Ya'):(f||'Tidak'))+'</span>';
-const rows=r=>r.map(x=>'<tr><td>'+x[0]+'</td><td>'+x[1]+'</td></tr>').join('');
-const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function loadSum(){try{const s=await (await fetch("summary.json",{cache:"no-store"})).json();
-document.getElementById("s-wa").innerHTML=rows([["Bot aktif (wabot.enabled)",yn(s.wa.enabled)],["Nomor diizinkan",s.wa.allowed],["Aksi ubah SSID/reboot",yn(s.wa.actions,'Diizinkan','Mati')],["Penerima alert",s.wa.alerts]]);
-document.getElementById("s-tg").innerHTML=rows([["Service genieacs-bot",yn(s.telegram.service==='active',s.telegram.service,esc(s.telegram.service))],["Bot aktif (bot.enabled)",yn(s.telegram.enabled)],["Token",yn(s.telegram.tokenSet,'Terisi','Belum diisi')],["Chat ID diizinkan",s.telegram.allowed],["Aksi ubah SSID/reboot",yn(s.telegram.actions,'Diizinkan','Mati')],["Penerima alert",s.telegram.alerts]]);
-document.getElementById("s-ai").innerHTML=rows([["AI aktif (bot.ai.enabled)",yn(s.ai.enabled)],["Provider",esc(s.ai.provider)],["Model",esc(s.ai.model)],["API key",yn(s.ai.keySet,'Terisi','Belum diisi')],["Base URL custom",s.ai.baseUrl?'Diisi':'-'],["Batas per hari",s.ai.dailyLimit]]);
-}catch(e){}}
-loadSum();
-async function load(){const st=document.getElementById("st"),box=document.getElementById("box"),nq=document.getElementById("nq");
-st.textContent="Memuat…";
-try{const s=await (await fetch("status.json",{cache:"no-store"})).json();nq.style.display="none";
-if(s.connected){st.innerHTML='<span class="ok">✅ Tersambung</span>'+(s.me?'<br>Nomor bot: '+s.me:'');box.innerHTML='';}
-else if(s.qr){st.textContent='Belum tersambung — scan QR di bawah (dibuat '+s.qrAge+' detik lalu):';box.innerHTML='<img id="qr" src="qr.svg?t='+Date.now()+'">';}
-else if(s.idle){st.textContent='QR sudah kedaluwarsa. Klik "Minta QR baru" lalu siapkan HP Anda.';box.innerHTML='';nq.style.display='inline-block';}
-else{st.textContent='Menyiapkan QR… klik Refresh beberapa detik lagi.';box.innerHTML='';}}
-catch(e){st.textContent="Bot tidak menjawab: "+e;}}
-async function newQr(){const b=document.getElementById("nq");b.disabled=true;
-try{await fetch("new-qr",{method:"POST"});}catch(e){}
-setTimeout(()=>{b.disabled=false;load();},4000);}
-load();
-</script>`);
+    res.end(pageHtml().replace("__USER__", String(user === true ? "-" : user).replace(/[<>&"']/g, "")));
   });
   srv.on("error", (e) => log("HTTP QR gagal di port " + port + ": " + e.message));
   srv.listen(port, "0.0.0.0", () => log("Halaman scan QR: http://<IP-SERVER>:" + port + "/  (login GenieACS dulu)"));

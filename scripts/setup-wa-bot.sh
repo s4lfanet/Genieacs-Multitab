@@ -31,7 +31,7 @@ fi
 echo "Node untuk bot WA: $("$NODE20" -v) (terpisah dari node sistem: $(command -v node >/dev/null && node -v || echo '-'))"
 
 mkdir -p "$DEST"
-cp "$ROOT/bot/wa.js" "$ROOT/bot/core.js" "$ROOT/bot/package.json" "$DEST/"
+cp "$ROOT/bot/wa.js" "$ROOT/bot/core.js" "$ROOT/bot/wa-page.html" "$ROOT/bot/package.json" "$DEST/"
 
 echo "Memasang dependensi npm (sekali saja, perlu internet)..."
 (cd "$DEST" && npm20 install --omit=dev --no-audit --no-fund)

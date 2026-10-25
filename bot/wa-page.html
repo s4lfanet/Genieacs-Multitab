@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="id">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bot - GenieACS</title>
+<style>
+:root{--bg:#f6f3ea;--card:#fff;--ink:#2d3748;--muted:#718096;--line:#e6e1d4;--pri:#2b6cb0;--pri-soft:#ebf4ff;
+--ok:#276749;--ok-bg:#c6f6d5;--warn:#975a16;--warn-bg:#fefcbf;--bad:#9b2c2c;--bad-bg:#fed7d7;--info-bg:#edf2f7}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+.wrap{max-width:900px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:22px;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.who{color:var(--muted);font-size:13px}
+.tabs{display:flex;gap:6px;border-bottom:2px solid var(--pri);margin-bottom:16px;flex-wrap:wrap}
+.tabs a{padding:10px 18px;border:1px solid var(--line);border-bottom:0;border-radius:8px 8px 0 0;background:#efebe0;
+color:var(--ink);text-decoration:none;font-weight:600;font-size:15px}
+.tabs a.on{background:var(--pri);border-color:var(--pri);color:#fff}
+.tab{display:none}.tab.on{display:block}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+.card h3{margin:0 0 12px;font-size:16px}
+.center{text-align:center}
+.pill{display:inline-block;padding:5px 14px;border-radius:99px;font-weight:700;font-size:14px;background:var(--info-bg)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.qr img{width:280px;max-width:100%;image-rendering:pixelated;border:1px solid var(--line);border-radius:8px;margin-top:12px}
+.btns{margin-top:12px}
+button{font-size:15px;padding:9px 16px;margin:4px;border-radius:6px;border:1px solid var(--pri);background:var(--pri);color:#fff;cursor:pointer}
+button.alt{background:#fff;color:var(--pri)}button:disabled{opacity:.5;cursor:default}
+.steps{text-align:left;color:var(--muted);font-size:13px;margin:14px 0 0;padding-left:20px;line-height:1.6}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{padding:8px 4px;border-bottom:1px solid #f1ede3;vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.k{color:var(--muted);width:52%}td.k code{font-size:11px;color:#a0aec0;display:block}
+.y{color:var(--ok);font-weight:600}.n{color:var(--bad);font-weight:600}.d{color:var(--muted)}
+.alerts{margin-bottom:14px}
+.alert{padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:8px;border-left:4px solid}
+.alert.bad{background:var(--bad-bg);border-color:#e53e3e;color:var(--bad)}
+.alert.warn{background:var(--warn-bg);border-color:#d69e2e;color:var(--warn)}
+.alert.info{background:var(--pri-soft);border-color:var(--pri);color:#2c5282}
+.edit{display:inline-block;margin-top:12px;color:var(--pri);font-size:14px;font-weight:600;text-decoration:none}
+.edit small{font-weight:400;color:var(--muted)}
+.note{color:var(--muted);font-size:13px;margin-top:14px;line-height:1.5}
+.foot{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:16px;color:var(--muted);font-size:13px}
+@media(max-width:680px){.grid{grid-template-columns:1fr}.tabs a{flex:1;text-align:center;padding:10px 6px;font-size:14px}}
+</style>
+<div class="wrap">
+<header>
+  <div><h1>🤖 Bot GenieACS</h1><div class="sub">Status WhatsApp, Telegram &amp; asisten AI</div></div>
+  <div class="who">Login: __USER__</div>
+</header>
+
+<nav class="tabs">
+  <a href="#wa" data-t="wa">📱 WhatsApp</a>
+  <a href="#tg" data-t="tg">✈️ Telegram</a>
+  <a href="#ai" data-t="ai">🧠 Asisten AI</a>
+</nav>
+
+<section id="t-wa" class="tab">
+  <div class="alerts" id="al-wa"></div>
+  <div class="grid">
+    <div class="card center qr">
+      <h3>Koneksi WhatsApp</h3>
+      <div id="wa-st"><span class="pill">Memuat…</span></div>
+      <div id="wa-me" class="note"></div>
+      <div id="wa-box"></div>
+      <div class="btns"><button onclick="refresh()">🔄 Refresh</button><button id="wa-new" class="alt" onclick="newQr()" hidden>Minta QR baru</button></div>
+      <ol class="steps" id="wa-steps" hidden>
+        <li>Buka WhatsApp di HP → <b>Perangkat Tertaut</b> → <b>Tautkan Perangkat</b>.</li>
+        <li>Arahkan kamera ke QR. QR berlaku ±20 detik — kalau gagal, klik <b>🔄 Refresh</b>.</li>
+        <li>Setelah scan, klik <b>🔄 Refresh</b> untuk melihat status tersambung.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Pengaturan</h3>
+      <table id="s-wa"></table>
+      <a class="edit cfg" data-q="wabot">✎ Ubah di Admin → Config <small>(cari: wabot)</small></a>
+    </div>
+  </div>
+</section>
+
+<section id="t-tg" class="tab">
+  <div class="alerts" id="al-tg"></div>
+  <div class="grid">
+    <div class="card"><h3>Status</h3><table id="s-tg1"></table></div>
+    <div class="card"><h3>Pengaturan</h3><table id="s-tg2"></table>
+      <a class="edit cfg" data-q="bot.telegram">✎ Ubah di Admin → Config <small>(cari: bot.telegram, bot.alert, bot.actions)</small></a></div>
+  </div>
+  <div class="note">Chat ID didapat dengan mengirim <b>/id</b> ke bot Telegram Anda.</div>
+</section>
+
+<section id="t-ai" class="tab">
+  <div class="alerts" id="al-ai"></div>
+  <div class="grid">
+    <div class="card"><h3>Status</h3><table id="s-ai1"></table></div>
+    <div class="card"><h3>Provider &amp; model</h3><table id="s-ai2"></table>
+      <a class="edit cfg" data-q="bot.ai">✎ Ubah di Admin → Config <small>(cari: bot.ai)</small></a></div>
+  </div>
+  <div class="note">Asisten AI dipakai bersama oleh bot Telegram dan WhatsApp lewat perintah <b>/tanya</b>. AI hanya bisa membaca data ONT; nilai rahasia seperti password disembunyikan sebelum dikirim ke AI.</div>
+</section>
+
+<div class="foot"><span id="upd">—</span><span>Ringkasan hanya-baca · nilai rahasia tidak ditampilkan</span></div>
+</div>
+
+<script>
+// ---- tab ----
+function showTab(t){if(!document.getElementById("t-"+t))t="wa";
+  document.querySelectorAll(".tab").forEach(s=>s.classList.toggle("on",s.id==="t-"+t));
+  document.querySelectorAll(".tabs a").forEach(a=>a.classList.toggle("on",a.dataset.t===t));}
+window.addEventListener("hashchange",()=>showTab(location.hash.slice(1)));
+showTab(location.hash.slice(1));
+
+// ---- tautan ke Admin -> Config (alamat GenieACS dari halaman induk, atau port 3000 di host yang sama) ----
+const GA=(()=>{try{if(document.referrer)return new URL(document.referrer).origin;}catch(e){}return location.protocol+"//"+location.hostname+":3000";})();
+document.querySelectorAll("a.cfg").forEach(a=>{a.href=GA+"/#!/admin/config";a.target="_top";});
+
+// ---- util ----
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const yn=(v,t,f)=>'<span class="'+(v?"y":"n")+'">'+(v?(t||"Ya"):(f||"Tidak"))+"</span>";
+const dim=s=>'<span class="d">'+s+"</span>";
+const row=(label,key,val)=>'<tr><td class="k">'+label+(key?"<code>"+key+"</code>":"")+"</td><td>"+val+"</td></tr>";
+const alerts=(id,list)=>{document.getElementById(id).innerHTML=list.map(a=>'<div class="alert '+a[0]+'">'+a[1]+"</div>").join("");};
+const KNOWN={anthropic:1,openrouter:1,openai:1};
+
+let WA={};
+async function loadWa(){
+  const st=document.getElementById("wa-st"),box=document.getElementById("wa-box"),nq=document.getElementById("wa-new"),
+        me=document.getElementById("wa-me"),steps=document.getElementById("wa-steps");
+  try{const s=await(await fetch("status.json",{cache:"no-store"})).json();WA=s;
+    nq.hidden=true;steps.hidden=true;me.textContent="";box.innerHTML="";
+    if(s.connected){st.innerHTML='<span class="pill ok">✅ Tersambung</span>';
+      me.innerHTML=(s.me?"Nomor bot: <b>"+esc(s.me)+"</b><br>":"")+(s.since?"Sejak "+new Date(s.since).toLocaleString("id-ID"):"");}
+    else if(s.qr){st.innerHTML='<span class="pill warn">📷 Menunggu scan QR</span>';me.textContent="QR dibuat "+s.qrAge+" detik lalu";
+      box.innerHTML='<img alt="QR WhatsApp" src="qr.svg?t='+Date.now()+'">';steps.hidden=false;}
+    else if(s.idle){st.innerHTML='<span class="pill bad">⏱ QR kedaluwarsa</span>';me.textContent='Klik "Minta QR baru", lalu siapkan HP Anda.';nq.hidden=false;}
+    else{st.innerHTML='<span class="pill">⏳ Menyiapkan QR…</span>';me.textContent="Klik Refresh beberapa detik lagi.";}
+  }catch(e){WA={};st.innerHTML='<span class="pill bad">Bot WA tidak menjawab</span>';}
+}
+
+async function loadSum(){
+  let s;try{s=await(await fetch("summary.json",{cache:"no-store"})).json();}catch(e){return;}
+  // WhatsApp
+  document.getElementById("s-wa").innerHTML=
+    row("Bot aktif","wabot.enabled",yn(s.wa.enabled))+
+    row("Nomor diizinkan","wabot.allowedNumbers",s.wa.allowed?s.wa.allowed+" nomor":yn(false,"","Belum ada"))+
+    row("Aksi ubah SSID / password / reboot","wabot.actions.enabled",yn(s.wa.actions,"Diizinkan","Mati"))+
+    row("Penerima alert fault","wabot.alert.numbers",s.wa.alerts?s.wa.alerts+" nomor":dim("Tidak ada"));
+  const aw=[];
+  if(WA.connected===false&&!WA.qr)aw.push(["warn","WhatsApp belum tersambung. Scan QR untuk menghubungkan nomor bot."]);
+  if(!s.wa.enabled)aw.push(["info","Bot WhatsApp belum aktif — pesan masuk tidak diproses. Ubah <b>wabot.enabled</b> menjadi 'true'."]);
+  else if(!s.wa.allowed)aw.push(["bad","Bot aktif tapi belum ada nomor di <b>wabot.allowedNumbers</b> — semua pesan diabaikan."]);
+  alerts("al-wa",aw);
+
+  // Telegram
+  const t=s.telegram,svcOk=t.service==="active";
+  document.getElementById("s-tg1").innerHTML=
+    row("Service","genieacs-bot",yn(svcOk,"Berjalan",esc(t.service)))+
+    row("Bot aktif","bot.enabled",yn(t.enabled))+
+    row("Token bot","bot.telegram.token",yn(t.tokenSet,"Terisi","Belum diisi"));
+  document.getElementById("s-tg2").innerHTML=
+    row("Chat ID diizinkan","bot.telegram.allowedChatIds",t.allowed?t.allowed+" chat":yn(false,"","Belum ada"))+
+    row("Aksi ubah SSID / password / reboot","bot.actions.enabled",yn(t.actions,"Diizinkan","Mati"))+
+    row("Penerima alert fault","bot.alert.chatIds",t.alerts?t.alerts+" chat":dim("Tidak ada"));
+  const at=[];
+  if(t.service==="tidak terpasang"||t.service==="inactive"&&!t.tokenSet)at.push(["info","Bot Telegram belum dipasang/dijalankan. Lihat docs/TELEGRAM-BOT.md (scripts/setup-bot.sh)."]);
+  else if(!svcOk)at.push(["bad","Service <b>genieacs-bot</b> tidak berjalan ("+esc(t.service)+")."]);
+  if(!t.tokenSet)at.push(["warn","Token bot Telegram belum diisi. Buat bot di <b>@BotFather</b>, lalu isi <b>bot.telegram.token</b>."]);
+  else if(!t.allowed)at.push(["bad","Token sudah ada tapi belum ada chat ID di <b>bot.telegram.allowedChatIds</b> — semua chat ditolak."]);
+  if(t.tokenSet&&!t.enabled)at.push(["info","Bot Telegram dimatikan lewat <b>bot.enabled</b>."]);
+  alerts("al-tg",at);
+
+  // AI
+  const a=s.ai,known=!!KNOWN[a.provider];
+  document.getElementById("s-ai1").innerHTML=
+    row("Asisten AI aktif","bot.ai.enabled",yn(a.enabled))+
+    row("API key","bot.ai.apiKey",yn(a.keySet,"Terisi","Belum diisi"))+
+    row("Batas pertanyaan per hari","bot.ai.dailyLimit",a.dailyLimit);
+  document.getElementById("s-ai2").innerHTML=
+    row("Provider","bot.ai.provider",esc(a.provider)+(known?"":" "+dim("(custom)")))+
+    row("Model","bot.ai.model",esc(a.model))+
+    row("Base URL","bot.ai.baseUrl",a.baseUrl?"Diisi":dim(known?"Bawaan provider":"—"));
+  const aa=[];
+  if(!a.enabled)aa.push(["info","Asisten AI belum aktif. Isi API key lalu ubah <b>bot.ai.enabled</b> menjadi 'true'."]);
+  if(a.enabled&&!a.keySet)aa.push(["bad","AI aktif tapi <b>bot.ai.apiKey</b> kosong — perintah /tanya akan gagal."]);
+  if(!known&&!a.baseUrl)aa.push(["bad","Provider custom wajib mengisi <b>bot.ai.baseUrl</b> (endpoint /chat/completions)."]);
+  if(a.provider==="openrouter"&&a.model.indexOf("/")<0)aa.push(["warn","Model OpenRouter biasanya berformat <b>vendor/model</b>, mis. anthropic/claude-opus-5-5."]);
+  alerts("al-ai",aa);
+
+  document.getElementById("upd").textContent="Diperbarui "+new Date().toLocaleTimeString("id-ID");
+}
+
+async function refresh(){await loadWa();await loadSum();}
+async function newQr(){const b=document.getElementById("wa-new");b.disabled=true;
+  try{await fetch("new-qr",{method:"POST"});}catch(e){}
+  setTimeout(()=>{b.disabled=false;refresh();},4000);}
+refresh();
+</script>
+</html>
