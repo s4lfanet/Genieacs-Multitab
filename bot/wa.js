@@ -144,7 +144,8 @@ function loadConfig() {
     enabled: String(pick("wabot.enabled", "false")).toLowerCase() === "true",
     allowedNumbers: allowed,
     nbi: "http://127.0.0.1:7557",
-    alertChatIds: g["wabot.alert.numbers"] ? list(g["wabot.alert.numbers"]) : [],
+    // WhatsApp butuh JID "62xxx@s.whatsapp.net", bukan nomor mentah "0822.."
+    alertChatIds: list(g["wabot.alert.numbers"]).map(normNum).filter((x) => x).map((x) => x + "@s.whatsapp.net"),
     alertEveryMinutes: parseInt(pick("wabot.alert.everyMinutes", 10), 10) || 10,
     alertFaultThreshold: parseInt(pick("wabot.alert.faultThreshold", 20), 10) || 20,
     actionsEnabled: String(pick("wabot.actions.enabled", "false")).toLowerCase() === "true",
@@ -168,8 +169,11 @@ function normNum(s) {
   return d;
 }
 
-const HELP_WA = HELP +
+const HELP_WA = HELP + "\n\nDi WhatsApp perintah boleh tanpa '/': ketik saja status, cek budi, cari rw01, dst." +
   "\n\nKonfirmasi aksi (ubahssid/ubahpass/reboot): balas *ya* untuk menyetujui, *batal* untuk membatalkan.";
+
+const WA_CMDS = ["cek", "cari", "ssid", "ubahssid", "ubahpass", "refresh", "reboot", "tanya", "ai",
+  "status", "fault", "offline", "redaman", "help", "menu", "start"];
 
 // lacak 1 pending terakhir per chat, supaya cukup balas "ya"/"batal" tanpa kode
 const lastPendingByChat = {};
@@ -207,6 +211,9 @@ async function handleText(cfg, sock, jid, text, phone) {
     return sock.sendMessage(jid, { text: res });
   }
 
+  // Di WhatsApp orang sering mengetik perintah tanpa "/": "status", "cek budi" -> "/status", "/cek budi"
+  const first = text.trim().split(/\s+/)[0].toLowerCase();
+  if (first[0] !== "/" && WA_CMDS.indexOf(first) >= 0) text = "/" + text.trim();
   const parts = text.trim().split(/\s+/);
   const cmd = parts[0].toLowerCase();
   const arg = parts.slice(1).join(" ");

@@ -10,5 +10,17 @@
  {
   "_id": "wabot.actions.enabled",
   "value": "'false'"
+ },
+ {
+  "_id": "wabot.alert.numbers",
+  "value": "''"
+ },
+ {
+  "_id": "wabot.alert.everyMinutes",
+  "value": "10"
+ },
+ {
+  "_id": "wabot.alert.faultThreshold",
+  "value": "20"
  }
 ]
