@@ -63,6 +63,7 @@ virtual-parameters/*.js          29 Virtual Parameter
 provisions/*.js                  provision (default, bootstrap, inform2, useradmin2, remoteweb, nokia_pppoe)
 presets/presets.json             preset referensi (preset opsional dipasang lewat flag installer)
 scripts/install.sh               installer (backup -> import -> cek UI -> rollback bila gagal)
+scripts/create-admin.sh          buat/reset user admin + izin penuh (GenieACS fresh install belum punya user)
 scripts/backup.sh, restore.sh    backup/restore koleksi GenieACS
 scripts/setup-branding.sh        pasang sinkron logo/judul (sudo sekali + cron)
 scripts/setup-bot.sh             pasang bot Telegram sebagai service systemd

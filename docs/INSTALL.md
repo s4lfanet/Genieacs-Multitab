@@ -12,6 +12,16 @@
 
 Jalankan installer sebagai user yang bisa mengakses MongoDB tanpa password. Ini kondisi default instalasi GenieACS: MongoDB di `127.0.0.1:27017`, database `genieacs`. Untuk installer **tidak perlu sudo**.
 
+### GenieACS baru pertama kali dipasang (belum ada user)?
+
+GenieACS sendiri tidak membuat user admin pertama secara otomatis — login akan selalu gagal sampai ada baris di koleksi `users`. Dan sekadar punya user saja **belum cukup**: tanpa baris di koleksi `permissions`, user tetap bisa login tapi setiap halaman menampilkan *"You are not authorized to view this page"*. Buat keduanya sekaligus:
+
+```bash
+bash scripts/create-admin.sh admin 'PasswordKuatAnda'
+```
+
+Aman dijalankan berkali-kali (upsert), termasuk untuk reset password user yang sudah ada atau menambah admin kedua. Lihat isi script untuk detail algoritma hash (cocok dengan GenieACS 1.2.13; cek ulang bila versi Anda jauh berbeda).
+
 Kalau nama database bukan `genieacs`, atau UI tidak di port 3000:
 ```bash
 export GENIEACS_DB=namadb
