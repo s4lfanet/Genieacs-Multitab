@@ -27,7 +27,9 @@ Semuanya dipasang lewat **data MongoDB** (Config, Virtual Parameters, Provisions
 
 ## Instal cepat
 
-Di server GenieACS (user yang bisa menjalankan `mongo`/`mongosh`):
+> **Belum punya GenieACS sama sekali?** Mulai dari [docs/GENIEACS-FRESH-INSTALL.md](docs/GENIEACS-FRESH-INSTALL.md) (Node, MongoDB, GenieACS, systemd, firewall) sebelum lanjut ke bawah.
+
+Di server GenieACS yang sudah jalan (user yang bisa menjalankan `mongo`/`mongosh`):
 
 ```bash
 git clone https://github.com/s4lfanet/Genieacs-Multitab.git
@@ -46,6 +48,7 @@ Panduan lengkap ada di **[docs/INSTALL.md](docs/INSTALL.md)**.
 
 | Dokumen | Isi |
 |---|---|
+| [docs/GENIEACS-FRESH-INSTALL.md](docs/GENIEACS-FRESH-INSTALL.md) | Instal GenieACS dari nol (server belum punya GenieACS sama sekali) |
 | [docs/INSTALL.md](docs/INSTALL.md) | Prasyarat, langkah instal, opsi installer, verifikasi, uninstall |
 | [docs/MULTITAB.md](docs/MULTITAB.md) | Cara kerja tab, daftar isi tiap tab, cara menambah tab/bagian |
 | [docs/PROVISIONS-VP.md](docs/PROVISIONS-VP.md) | Daftar Virtual Parameter & provision, preset opsional, catatan per merk |

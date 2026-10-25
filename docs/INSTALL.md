@@ -1,5 +1,7 @@
 # Panduan Instal
 
+> Panduan ini untuk server yang **GenieACS-nya sudah jalan**. Kalau belum ada GenieACS sama sekali, mulai dari [GENIEACS-FRESH-INSTALL.md](GENIEACS-FRESH-INSTALL.md) dulu.
+
 ## 1. Prasyarat
 
 | Komponen | Cek |
