@@ -8,6 +8,9 @@ User=USERNAME
 Group=USERNAME
 WorkingDirectory=/home/USERNAME/genieacs-bot
 Environment=HOME=/home/USERNAME
+# GENIEACS_UI_JWT_SECRET untuk halaman scan QR (hanya admin yang sudah login GenieACS).
+# Dibaca systemd sebagai root sebelum turun ke User=, jadi file mode 600 milik genieacs tetap bisa.
+EnvironmentFile=-/opt/genieacs/genieacs.env
 ExecStart=/opt/node20/bin/node /home/USERNAME/genieacs-bot/wa.js
 Restart=on-failure
 RestartSec=15

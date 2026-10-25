@@ -74,6 +74,7 @@ scripts/backup.sh, restore.sh    backup/restore koleksi GenieACS
 scripts/setup-branding.sh        pasang sinkron logo/judul (sudo sekali + cron)
 scripts/setup-bot.sh             pasang bot Telegram sebagai service systemd
 scripts/setup-wa-bot.sh          pasang bot WhatsApp opsional (Node 20 terpisah + npm, lihat docs/WHATSAPP-BOT.md)
+scripts/wa-ui-link.sh            tombol "📱 Bot WA" di bar tab GenieACS -> halaman scan QR di browser
 branding/branding.js             script sinkron branding
 bot/core.js                      logic inti bot (perintah, AI), dipakai bot.js & wa.js
 bot/bot.js                       bot Telegram (Node 12+, tanpa npm)

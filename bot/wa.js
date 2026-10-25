@@ -16,6 +16,8 @@
 
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
+const crypto = require("crypto");
 const core = require("./core.js");
 const { log, sleep, audit, cmdCari, cmdOffline, cmdRedaman, cmdCek, cmdStatus, cmdFault,
   cmdSsid, cmdRefresh, cmdTanya, PENDING, PENDING_TTL, pendingCleanup, prepareChange, prepareReboot,
@@ -36,6 +38,89 @@ try {
 const AUTH_DIR = path.join(__dirname, "wa_auth");
 const QR_FILE = path.join(__dirname, "wa_qr.txt");
 
+// ---------- halaman web untuk scan QR (tanpa perlu buka terminal) ----------
+// http://IP-SERVER:<wabot.httpPort, default 3010>/ -- hanya untuk user yang SUDAH LOGIN GenieACS:
+// browser otomatis mengirim cookie "genieacs-ui-jwt" (cookie terikat host, bukan port), lalu
+// diverifikasi dengan GENIEACS_UI_JWT_SECRET yang sama dengan GenieACS. QR digambar di server
+// (SVG), tidak dikirim ke layanan luar.
+const waState = { qr: null, connected: false, me: null, since: null };
+
+function qrSvg(text) {
+  const QRCode = require("qrcode-terminal/vendor/QRCode");
+  const L = require("qrcode-terminal/vendor/QRCode/QRErrorCorrectLevel");
+  const q = new QRCode(-1, L.L);
+  q.addData(text); q.make();
+  const n = q.getModuleCount(), s = 8, pad = 4 * s, size = n * s + pad * 2;
+  let rects = "";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (q.isDark(r, c)) rects += '<rect x="' + (pad + c * s) + '" y="' + (pad + r * s) + '" width="' + s + '" height="' + s + '"/>';
+  }
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + size + " " + size + '" width="' + size + '" height="' + size + '"><rect width="100%" height="100%" fill="#fff"/><g fill="#000">' + rects + "</g></svg>";
+}
+
+function b64url(buf) { return buf.toString("base64").replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_"); }
+function jwtValid(token, secret) {
+  try {
+    const [h, p, sig] = String(token || "").split(".");
+    if (!h || !p || !sig) return false;
+    const header = JSON.parse(Buffer.from(h, "base64").toString("utf8"));
+    if (header.alg !== "HS256") return false;
+    const expect = b64url(crypto.createHmac("sha256", secret).update(h + "." + p).digest());
+    if (expect.length !== sig.length || !crypto.timingSafeEqual(Buffer.from(expect), Buffer.from(sig))) return false;
+    const payload = JSON.parse(Buffer.from(p, "base64").toString("utf8"));
+    if (payload.exp && payload.exp * 1000 < Date.now()) return false;
+    return payload.username || true;
+  } catch (e) { return false; }
+}
+function cookie(req, name) {
+  const m = String(req.headers.cookie || "").split(/;\s*/).find((c) => c.indexOf(name + "=") === 0);
+  return m ? decodeURIComponent(m.slice(name.length + 1)) : null;
+}
+
+function startHttp(port) {
+  const secret = process.env.GENIEACS_UI_JWT_SECRET;
+  if (!secret) log("PERINGATAN: GENIEACS_UI_JWT_SECRET tidak terbaca -- halaman QR web dimatikan (lihat docs/WHATSAPP-BOT.md).");
+  const srv = http.createServer((req, res) => {
+    const user = secret && jwtValid(cookie(req, "genieacs-ui-jwt"), secret);
+    if (!user) {
+      res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
+      return res.end('<meta charset="utf-8"><body style="font-family:sans-serif;padding:2em">' +
+        "<h2>Login GenieACS dulu</h2><p>Halaman ini hanya untuk admin yang sudah login ke GenieACS di server ini " +
+        "(alamat IP/host harus sama). Buka GenieACS, login, lalu muat ulang halaman ini.</p></body>");
+    }
+    const url = req.url.split("?")[0];
+    if (url === "/qr.svg") {
+      if (!waState.qr) { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { "Content-Type": "image/svg+xml", "Cache-Control": "no-store" });
+      return res.end(qrSvg(waState.qr));
+    }
+    if (url === "/status.json") {
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      return res.end(JSON.stringify({ connected: waState.connected, me: waState.me, qr: !!waState.qr, since: waState.since }));
+    }
+    if (url !== "/") { res.writeHead(404); return res.end(); }
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+    res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bot WhatsApp - GenieACS</title>
+<style>body{font-family:system-ui,sans-serif;background:#f2eddf;margin:0;padding:24px;color:#2d3748}
+.card{max-width:460px;margin:0 auto;background:#fff;border-radius:10px;padding:24px;box-shadow:0 2px 10px #0002;text-align:center}
+#qr{width:300px;max-width:100%;image-rendering:pixelated}.ok{color:#2f855a;font-size:20px;font-weight:700}.muted{color:#718096;font-size:14px}</style>
+<div class="card"><h2>📱 Bot WhatsApp</h2><div id="st" class="muted">Memuat…</div><div id="box"></div>
+<p class="muted">Di HP: WhatsApp → <b>Perangkat Tertaut</b> → <b>Tautkan Perangkat</b>, lalu arahkan kamera ke QR.<br>QR berganti otomatis tiap ±20 detik; halaman ini memperbaruinya sendiri.</p>
+<p class="muted">Login sebagai: ${String(user === true ? "-" : user).replace(/[<>&]/g, "")}</p></div>
+<script>
+async function tick(){try{const s=await (await fetch("status.json",{cache:"no-store"})).json();
+const st=document.getElementById("st"),box=document.getElementById("box");
+if(s.connected){st.innerHTML='<span class="ok">✅ Tersambung</span>'+(s.me?'<br>Nomor bot: '+s.me:'');box.innerHTML='';}
+else if(s.qr){st.textContent='Belum tersambung — scan QR di bawah:';box.innerHTML='<img id="qr" src="qr.svg?t='+Date.now()+'">';}
+else{st.textContent='Menunggu QR dari WhatsApp…';box.innerHTML='';}}catch(e){document.getElementById("st").textContent="Bot tidak menjawab: "+e;}}
+tick();setInterval(tick,4000);
+</script>`);
+  });
+  srv.on("error", (e) => log("HTTP QR gagal di port " + port + ": " + e.message));
+  srv.listen(port, "0.0.0.0", () => log("Halaman scan QR: http://<IP-SERVER>:" + port + "/  (login GenieACS dulu)"));
+}
+
 // ---------- pengaturan (namespace "wabot.*", AI tetap pakai "bot.ai.*" bersama Telegram) ----------
 function loadConfig() {
   const g = readGenieConfig();
@@ -49,6 +134,7 @@ function loadConfig() {
     alertEveryMinutes: parseInt(pick("wabot.alert.everyMinutes", 10), 10) || 10,
     alertFaultThreshold: parseInt(pick("wabot.alert.faultThreshold", 20), 10) || 20,
     actionsEnabled: String(pick("wabot.actions.enabled", "false")).toLowerCase() === "true",
+    httpPort: parseInt(pick("wabot.httpPort", 3010), 10) || 3010,
     // AI dibagi dengan bot.js (satu pengaturan untuk semua transport)
     aiEnabled: String(pick("bot.ai.enabled", "false")).toLowerCase() === "true",
     aiProvider: String(pick("bot.ai.provider", "anthropic")).toLowerCase(),
@@ -148,6 +234,7 @@ async function connect() {
   sock.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
     if (qr) {
+      waState.qr = qr; waState.connected = false;
       qrcodeTerminal.generate(qr, { small: true });
       try { fs.writeFileSync(QR_FILE, qr); } catch (e) { /* abaikan */ }
       log("QR baru dibuat. Scan dari WhatsApp di HP: Perangkat Tertaut -> Tautkan Perangkat.");
@@ -156,10 +243,18 @@ async function connect() {
     if (connection === "close") {
       const statusCode = lastDisconnect && lastDisconnect.error && lastDisconnect.error.output && lastDisconnect.error.output.statusCode;
       const loggedOut = DisconnectReason && statusCode === DisconnectReason.loggedOut;
-      log("WA terputus" + (loggedOut ? " (logout -- hapus wa_auth/ lalu scan QR ulang untuk login lagi)" : ", mencoba sambung ulang..."));
+      waState.connected = false; waState.me = null;
+      if (loggedOut) {
+        // sesi dicabut dari HP: hapus sesi lama lalu minta QR baru otomatis (tanpa perlu terminal)
+        try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch (e) { /* abaikan */ }
+        setTimeout(connect, 3000);
+      }
+      log("WA terputus" + (loggedOut ? " (logout dari HP -- sesi dihapus, QR baru disiapkan di halaman scan)" : ", mencoba sambung ulang..."));
       if (!loggedOut) setTimeout(connect, 5000);
     } else if (connection === "open") {
-      log("WA tersambung. Nomor diizinkan: " + loadConfig().allowedNumbers.length);
+      waState.connected = true; waState.qr = null; waState.since = new Date().toISOString();
+      waState.me = sock.user && sock.user.id ? numFromJid(sock.user.id).replace(/:.*/, "") : null;
+      log("WA tersambung" + (waState.me ? " sebagai " + waState.me : "") + ". Nomor diizinkan: " + loadConfig().allowedNumbers.length);
       try { fs.unlinkSync(QR_FILE); } catch (e) { /* tidak ada */ }
     }
   });
@@ -205,7 +300,8 @@ async function main() {
     else console.log("selftest: config | cek <q> | status | help");
     return;
   }
-  log("Memulai bot WhatsApp. Jalankan ulang skrip ini kalau terminal tertutup sebelum QR sempat di-scan.");
+  log("Memulai bot WhatsApp.");
+  startHttp(loadConfig().httpPort);
   await connect();
 }
 

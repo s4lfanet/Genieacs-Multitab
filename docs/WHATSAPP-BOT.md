@@ -18,14 +18,17 @@ Kalau risiko di atas tidak bisa diterima, pakai [bot Telegram](TELEGRAM-BOT.md) 
    curl -fsSL -o /tmp/node20.tar.xz https://nodejs.org/dist/v20.20.2/node-v20.20.2-linux-x64.tar.xz
    sudo mkdir -p /opt/node20 && sudo tar xJf /tmp/node20.tar.xz -C /opt/node20 --strip-components=1
    ```
-2. `bash scripts/setup-wa-bot.sh` — menyalin `wa.js`+`core.js`, `npm install` paket di atas, pasang service systemd (butuh sudo sekali), **tidak langsung dijalankan**.
-3. Scan QR:
-   ```bash
-   sudo systemctl start genieacs-wa-bot
-   journalctl -u genieacs-wa-bot -f
-   ```
-   QR muncul di terminal. Di HP: **WhatsApp → Perangkat Tertaut → Tautkan Perangkat**, scan. Kalau terminal tidak bisa menampilkan QR, isi mentahnya ada di `~/genieacs-bot/wa_qr.txt` (tempel ke generator QR online untuk melihatnya sebagai gambar).
-4. Setelah tersambung (log `WA tersambung`), isi di **Admin → Config**:
+2. `bash scripts/setup-wa-bot.sh` — menyalin `wa.js`+`core.js`, `npm install` paket di atas, pasang & jalankan service systemd (butuh sudo sekali), buka port 3010 di ufw kalau ufw aktif.
+3. **Scan QR dari browser** (tanpa terminal):
+   - Login dulu ke GenieACS seperti biasa, misalnya `http://192.168.1.10:3000`.
+   - Buka **`http://192.168.1.10:3010/`** (host/IP **sama** dengan GenieACS, port 3010).
+   - Di HP: **WhatsApp → Perangkat Tertaut → Tautkan Perangkat**, arahkan ke QR. Halaman memperbarui QR sendiri (tiap ±20 detik) dan berubah jadi **✅ Tersambung** setelah berhasil.
+   - Opsional, tombol pintasan hijau **📱 Bot WA** di bar tab halaman device: `bash scripts/wa-ui-link.sh` (atau `bash scripts/wa-ui-link.sh http://alamat-anda:3010/` kalau admin membuka GenieACS lewat alamat lain). Jalankan lagi sesudah `install.sh`, karena installer mengganti semua `ui.*`.
+
+   Halaman ini **hanya terbuka untuk yang sudah login GenieACS**: browser mengirim cookie login GenieACS (`genieacs-ui-jwt`) dan bot memverifikasinya dengan `GENIEACS_UI_JWT_SECRET` yang sama (dibaca dari file env service `genieacs-ui`). Tanpa login → "Login GenieACS dulu". QR digambar di server, tidak dikirim ke layanan luar. Ini penting: siapa pun yang scan QR duluan, nomornyalah yang terhubung ke bot.
+
+   Cadangan kalau halaman web tidak bisa dipakai: `journalctl -u genieacs-wa-bot -f` (QR tampil di terminal).
+4. Setelah tersambung, isi di **Admin → Config**:
 
 | Key | Contoh |
 |---|---|
@@ -33,6 +36,7 @@ Kalau risiko di atas tidak bisa diterima, pakai [bot Telegram](TELEGRAM-BOT.md) 
 | `wabot.allowedNumbers` | `'6281234567890, 6289876543210'` (format internasional tanpa `+`, kosong = semua ditolak) |
 | `wabot.actions.enabled` | `'false'` (ubah ke `'true'` untuk ubah SSID/password/reboot) |
 | `wabot.alert.numbers` / `wabot.alert.everyMinutes` / `wabot.alert.faultThreshold` | opsional, sama seperti `bot.alert.*` di Telegram |
+| `wabot.httpPort` | opsional, port halaman scan QR (default `3010`, perlu restart service) |
 
 Asisten AI (`/tanya`) **tidak perlu diatur ulang** — memakai `bot.ai.*` yang sama dengan bot Telegram (satu pengaturan untuk semua transport).
 
@@ -58,4 +62,4 @@ Log: `journalctl -u genieacs-wa-bot -f`
 - Hanya nomor terdaftar (`wabot.allowedNumbers`) yang dilayani.
 - Aksi selalu lewat konfirmasi teks dan dicatat di `~/genieacs-bot/audit.log` (log gabungan dengan bot Telegram, ditandai `WA `).
 - `wa_auth/` berisi kunci sesi WhatsApp — perlakukan seperti password, jangan commit ke git (sudah ada di `.gitignore`).
-- Kalau nomor bot diblokir atau logout sendiri, hapus `wa_auth/` dan ulangi dari langkah "Scan QR" di atas.
+- Kalau perangkat bot dicabut dari HP (logout), bot otomatis menghapus sesi lama dan menyiapkan QR baru di halaman scan — cukup buka halaman itu lagi dan scan ulang.

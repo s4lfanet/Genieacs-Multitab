@@ -40,17 +40,34 @@ CHECK="$(cd "$DEST" && "$NODE20" -e 'try{require("@whiskeysockets/baileys");cons
 echo "Cek modul Baileys: $CHECK"
 [ "$CHECK" = "ok" ] || { echo "ERROR: instalasi npm gagal, lihat pesan di atas"; exit 1; }
 
+# Halaman scan QR memakai secret JWT GenieACS UI (supaya hanya admin yang sudah login GenieACS
+# bisa membukanya). Cari file env yang dipakai service genieacs-ui.
+ENVF="$(systemctl show genieacs-ui -p EnvironmentFiles --value 2>/dev/null | awk '{print $1}')"
+[ -n "$ENVF" ] || ENVF=/opt/genieacs/genieacs.env
+if sudo grep -q '^GENIEACS_UI_JWT_SECRET=' "$ENVF" 2>/dev/null; then
+  echo "Secret JWT GenieACS: $ENVF"
+else
+  echo "PERINGATAN: GENIEACS_UI_JWT_SECRET tidak ditemukan di $ENVF -- halaman scan QR web tidak aktif"
+  echo "  (QR tetap bisa dilihat lewat: journalctl -u genieacs-wa-bot -f). Lihat docs/WHATSAPP-BOT.md."
+fi
+
+PORT=3010
 sed -e "s#/home/USERNAME#$HOME#g" -e "s#USERNAME#$U#g" -e "s#/opt/node20/bin/node#$NODE20#" \
+  -e "s#^EnvironmentFile=-.*#EnvironmentFile=-$ENVF#" \
   "$ROOT/bot/genieacs-wa-bot.service" > /tmp/genieacs-wa-bot.service
 sudo install -m 644 /tmp/genieacs-wa-bot.service /etc/systemd/system/genieacs-wa-bot.service
 rm -f /tmp/genieacs-wa-bot.service
 sudo systemctl daemon-reload
-sudo systemctl enable genieacs-wa-bot
+sudo systemctl enable --now genieacs-wa-bot
 
+if command -v ufw >/dev/null && sudo ufw status | grep -q "Status: active"; then
+  sudo ufw allow $PORT/tcp comment 'GenieACS bot WA - halaman scan QR' >/dev/null && echo "ufw: port $PORT dibuka"
+fi
+
+IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo
-echo "Belum dijalankan otomatis -- jalankan manual dulu untuk scan QR:"
-echo "  sudo systemctl start genieacs-wa-bot"
-echo "  journalctl -u genieacs-wa-bot -f      # QR muncul di sini, scan dari HP"
+echo "Bot WA berjalan. Scan QR dari browser (login GenieACS dulu di alamat yang sama):"
+echo "  http://${IP:-IP-SERVER}:$PORT/"
 echo
-echo "Setelah scan berhasil (sekali saja), aktifkan wabot.enabled='true' dan isi"
-echo "wabot.allowedNumbers di GenieACS Admin -> Config (format: 62812xxxxxxx, tanpa +)."
+echo "Setelah tersambung, aktifkan wabot.enabled='true' dan isi wabot.allowedNumbers"
+echo "di GenieACS Admin -> Config (format: 62812xxxxxxx, tanpa +)."
