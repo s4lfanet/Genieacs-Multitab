@@ -4,6 +4,14 @@ Paket tampilan dan otomasi untuk **GenieACS 1.2.x** (TR-069 ACS). Dipakai untuk 
 
 Semuanya dipasang lewat **data MongoDB** (Config, Virtual Parameters, Provisions). Kode program GenieACS tidak di-patch. Hanya fitur branding yang menulis 2 file tampilan, dan itu opsional.
 
+## Screenshot
+
+| Ringkasan | WAN & WiFi | Admin Web (incl. ACS) |
+|---|---|---|
+| ![Tab Ringkasan](docs/images/tab-ringkasan.png) | ![Tab WAN & WiFi](docs/images/tab-wan-wifi.png) | ![Tab Admin Web](docs/images/tab-admin-web.png) |
+
+*Diambil dari instalasi produksi (±600 ONT); kredensial dan IP pada gambar sudah ditutup.*
+
 ## Fitur
 
 | Fitur | Keterangan |
