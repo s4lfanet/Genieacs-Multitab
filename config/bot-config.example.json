@@ -32,7 +32,15 @@
   "value": "'false'"
  },
  {
+  "_id": "bot.ai.provider",
+  "value": "'anthropic'"
+ },
+ {
   "_id": "bot.ai.apiKey",
+  "value": "''"
+ },
+ {
+  "_id": "bot.ai.baseUrl",
   "value": "''"
  },
  {

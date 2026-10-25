@@ -40,7 +40,7 @@ Alert otomatis: bot mengirim pesan ke `bot.alert.chatIds` kalau jumlah fault mel
 | `bot.alert.chatIds` | `'123456789'` |
 | `bot.alert.everyMinutes` / `bot.alert.faultThreshold` | `10` / `20` |
 | `bot.actions.enabled` | `'false'` (ubah ke `'true'` untuk ubah SSID/password/reboot) |
-| `bot.ai.enabled` / `bot.ai.apiKey` / `bot.ai.model` / `bot.ai.dailyLimit` | `'false'` / `''` / `'claude-opus-5-5'` / `50` |
+| `bot.ai.enabled` / `bot.ai.provider` / `bot.ai.apiKey` / `bot.ai.baseUrl` / `bot.ai.model` / `bot.ai.dailyLimit` | `'false'` / `'anthropic'` / `''` / `''` / `'claude-opus-5-5'` / `50` |
 
 4. Pasang service: `bash scripts/setup-bot.sh` (butuh sudo sekali, dan service berjalan sebagai user Anda).
 5. Kirim `/id` ke bot, masukkan chat ID Anda ke `bot.telegram.allowedChatIds`, lalu coba `/status`.
@@ -57,11 +57,25 @@ Bot membaca Config lewat `mongosh` atau `mongo`, mana saja yang tersedia (didete
 
 ## Asisten AI (`/tanya`)
 
-Memakai Claude API (Anthropic) dengan **tool hanya-baca**: cari ONT, detail ONT, baca parameter, log ONT, daftar fault, ringkasan status, ONT offline, ONT redaman buruk, dan laporan remote web. AI tidak bisa mengubah apa pun. Nilai sensitif seperti password/key/PSK disembunyikan sebelum dikirim ke AI.
+Dengan **tool hanya-baca**: cari ONT, detail ONT, baca parameter, log ONT, daftar fault, ringkasan status, ONT offline, ONT redaman buruk, dan laporan remote web. AI tidak bisa mengubah apa pun. Nilai sensitif seperti password/key/PSK disembunyikan sebelum dikirim ke AI.
 
-- API key dibuat di <https://console.anthropic.com> (tagihan terpisah dari langganan Claude.ai).
 - Isi `bot.ai.apiKey`, lalu set `bot.ai.enabled = 'true'`.
 - `bot.ai.dailyLimit` membatasi jumlah pertanyaan per hari.
+
+### Provider AI
+
+`bot.ai.provider` menentukan API mana yang dipanggil:
+
+| `bot.ai.provider` | API | `bot.ai.model` contoh | `bot.ai.baseUrl` |
+|---|---|---|---|
+| `'anthropic'` (bawaan) | Claude API langsung | `'claude-opus-5-5'` | kosongkan (atau isi untuk proxy/enterprise) |
+| `'openrouter'` | [OpenRouter](https://openrouter.ai) — satu API ke banyak model (Claude, GPT, Gemini, Llama, dll) | `'anthropic/claude-opus-5-5'`, `'openai/gpt-5'`, `'google/gemini-2.5-pro'` | kosongkan (otomatis `https://openrouter.ai/api/v1`) |
+| `'openai'` | OpenAI langsung | `'gpt-5'` | kosongkan (otomatis `https://api.openai.com/v1`) |
+| lainnya | endpoint custom mana pun yang mengikuti format `/chat/completions` (Groq, Together, LM Studio lokal, dll) | sesuai model di endpoint itu | **wajib diisi**, mis. `'https://api.groq.com/openai/v1'` |
+
+- API key Anthropic dibuat di <https://console.anthropic.com> (tagihan terpisah dari langganan Claude.ai). API key OpenRouter/OpenAI dibuat di dashboard masing-masing.
+- `openrouter`/`openai`/custom memakai format tool-calling gaya OpenAI (`/chat/completions`); `anthropic` memakai format Messages API-nya sendiri. Keduanya memakai tool yang sama persis (hanya-baca) — tidak ada perbedaan kemampuan, cuma provider yang beda.
+- Ganti provider kapan saja tanpa restart bot — cukup ubah key di Admin → Config, terbaca otomatis di pertanyaan berikutnya.
 
 ## Keamanan
 

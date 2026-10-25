@@ -70,7 +70,10 @@ function loadConfig() {
     actionsEnabled: String(pick("bot.actions.enabled", "false")).toLowerCase() === "true",
     // asisten AI (hanya baca)
     aiEnabled: String(pick("bot.ai.enabled", "false")).toLowerCase() === "true",
+    // provider: "anthropic" (default, api.anthropic.com) | "openrouter" | "openai" (endpoint OpenAI-compatible lain)
+    aiProvider: String(pick("bot.ai.provider", "anthropic")).toLowerCase(),
     aiApiKey: pick("bot.ai.apiKey", ""),
+    aiBaseUrl: pick("bot.ai.baseUrl", ""), // override URL dasar (wajib diisi untuk endpoint custom selain anthropic/openrouter/openai)
     aiModel: pick("bot.ai.model", "claude-opus-5-5"),
     aiDailyLimit: parseInt(pick("bot.ai.dailyLimit", 50), 10) || 50
   };
@@ -499,7 +502,9 @@ async function handleCallback(cfg, cq) {
   return send(cfg, chatId, res);
 }
 
-// ---------- TAHAP 3: asisten AI (Claude), HANYA BACA ----------
+// ---------- TAHAP 3: asisten AI, HANYA BACA ----------
+// Provider: bot.ai.provider = "anthropic" (bawaan) | "openrouter" | "openai" (atau endpoint
+// OpenAI-compatible lain lewat bot.ai.baseUrl). Lihat docs/TELEGRAM-BOT.md -> "Provider AI".
 const CWMP_LOG = "/var/log/genieacs/genieacs-cwmp-access.log";
 const SENSITIVE = /pass|key|secret|token|psk|wep|credential/i;
 
@@ -588,20 +593,92 @@ async function aiRunTool(cfg, name, input) {
   }
 }
 
-// fallback otomatis saat model menolak hanya didukung model tertentu
-function aiFallbackOk(model) { return /^claude-(opus-5|fable-5|sonnet-5-5)/.test(model); }
+// ---- Provider AI: "anthropic" (bawaan) atau endpoint OpenAI-compatible ("openrouter"/"openai"/custom) ----
+// Supaya cmdTanya tidak perlu tahu bentuk pesan tiap provider, tiap provider punya 4 fungsi dengan
+// bentuk sama: init(pertanyaan) -> messages awal; call(cfg, messages) -> hasil ternormalisasi
+// {text, toolCalls:[{id,name,input}], stopReason, usage:{in,out}, raw}; appendAssistant/appendToolResults
+// menambah giliran berikutnya ke `messages` memakai bentuk asli provider itu.
 
-async function claude(cfg, body) {
-  const headers = { "Content-Type": "application/json", "x-api-key": cfg.aiApiKey, "anthropic-version": "2023-06-01" };
-  if (aiFallbackOk(body.model)) { body.fallbacks = "default"; headers["anthropic-beta"] = "server-side-fallback-2026-07-01"; }
-  const payload = JSON.stringify(body);
-  headers["Content-Length"] = Buffer.byteLength(payload);
-  const r = await request("https://api.anthropic.com/v1/messages", { method: "POST", timeout: 180000, headers: headers }, payload);
-  let j = {};
-  try { j = JSON.parse(r.body); } catch (e) { /* bukan JSON */ }
-  if (r.status !== 200) throw new Error("API AI HTTP " + r.status + ": " + ((j.error && j.error.message) || r.body.slice(0, 200)));
-  return j;
+function aiFallbackOk(model) { return /^claude-(opus-5|fable-5|sonnet-5-5)/.test(model); } // fallback refusal: Anthropic saja
+
+const AI_PROVIDER_ANTHROPIC = {
+  init(question) { return [{ role: "user", content: question }]; },
+  async call(cfg, messages) {
+    const body = {
+      model: cfg.aiModel, max_tokens: 16000,
+      system: AI_SYSTEM, tools: AI_TOOLS, messages: messages,
+      output_config: { effort: "medium" },
+      cache_control: { type: "ephemeral" }
+    };
+    const headers = { "Content-Type": "application/json", "x-api-key": cfg.aiApiKey, "anthropic-version": "2023-06-01" };
+    if (aiFallbackOk(body.model)) { body.fallbacks = "default"; headers["anthropic-beta"] = "server-side-fallback-2026-07-01"; }
+    const payload = JSON.stringify(body);
+    headers["Content-Length"] = Buffer.byteLength(payload);
+    const url = (cfg.aiBaseUrl || "https://api.anthropic.com/v1/messages");
+    const r = await request(url, { method: "POST", timeout: 180000, headers: headers }, payload);
+    let j = {};
+    try { j = JSON.parse(r.body); } catch (e) { /* bukan JSON */ }
+    if (r.status !== 200) throw new Error("API AI HTTP " + r.status + ": " + ((j.error && j.error.message) || r.body.slice(0, 200)));
+    const content = j.content || [];
+    return {
+      text: content.filter((b) => b.type === "text").map((b) => b.text).join("\n").trim(),
+      toolCalls: content.filter((b) => b.type === "tool_use").map((b) => ({ id: b.id, name: b.name, input: b.input })),
+      stopReason: j.stop_reason,
+      usage: { in: (j.usage && j.usage.input_tokens) || 0, out: (j.usage && j.usage.output_tokens) || 0 },
+      raw: j
+    };
+  },
+  appendAssistant(messages, r) { messages.push({ role: "assistant", content: r.raw.content }); },
+  appendToolResults(messages, results) {
+    messages.push({ role: "user", content: results.map((x) => ({ type: "tool_result", tool_use_id: x.id, content: x.content, is_error: x.isErr })) });
+  }
+};
+
+// OpenAI-compatible: dipakai untuk "openrouter", "openai", atau endpoint lain yang mengikuti format
+// /chat/completions (base URL & model menyesuaikan, mis. model="anthropic/claude-opus-5-5" di OpenRouter).
+function aiToolsOpenAI() {
+  return AI_TOOLS.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }));
 }
+function aiBaseUrlOpenAI(cfg) {
+  if (cfg.aiBaseUrl) return cfg.aiBaseUrl.replace(/\/+$/, "");
+  if (cfg.aiProvider === "openrouter") return "https://openrouter.ai/api/v1";
+  if (cfg.aiProvider === "openai") return "https://api.openai.com/v1";
+  throw new Error("bot.ai.baseUrl belum diisi (wajib untuk provider '" + cfg.aiProvider + "')");
+}
+const AI_PROVIDER_OPENAI = {
+  init(question) { return [{ role: "system", content: AI_SYSTEM }, { role: "user", content: question }]; },
+  async call(cfg, messages) {
+    const body = { model: cfg.aiModel, max_tokens: 16000, messages: messages, tools: aiToolsOpenAI(), tool_choice: "auto" };
+    const headers = { "Content-Type": "application/json", Authorization: "Bearer " + cfg.aiApiKey };
+    if (cfg.aiProvider === "openrouter") { headers["HTTP-Referer"] = "https://github.com/s4lfanet/Genieacs-Multitab"; headers["X-Title"] = "Genieacs-Multitab bot"; }
+    const payload = JSON.stringify(body);
+    headers["Content-Length"] = Buffer.byteLength(payload);
+    const r = await request(aiBaseUrlOpenAI(cfg) + "/chat/completions", { method: "POST", timeout: 180000, headers: headers }, payload);
+    let j = {};
+    try { j = JSON.parse(r.body); } catch (e) { /* bukan JSON */ }
+    if (r.status !== 200) throw new Error("API AI HTTP " + r.status + ": " + ((j.error && j.error.message) || r.body.slice(0, 200)));
+    const choice = (j.choices || [])[0] || {};
+    const msg = choice.message || { role: "assistant", content: "" };
+    const toolCalls = (msg.tool_calls || []).map((tc) => {
+      let input = {};
+      try { input = JSON.parse(tc.function.arguments || "{}"); } catch (e) { /* biarkan kosong, tool akan dapat input kosong */ }
+      return { id: tc.id, name: tc.function.name, input: input };
+    });
+    return {
+      text: (msg.content || "").trim(),
+      toolCalls: toolCalls,
+      stopReason: choice.finish_reason === "tool_calls" ? "tool_use" : choice.finish_reason === "length" ? "max_tokens" : "end_turn",
+      usage: { in: (j.usage && j.usage.prompt_tokens) || 0, out: (j.usage && j.usage.completion_tokens) || 0 },
+      raw: msg
+    };
+  },
+  appendAssistant(messages, r) { messages.push(r.raw); },
+  appendToolResults(messages, results) {
+    results.forEach((x) => messages.push({ role: "tool", tool_call_id: x.id, content: x.content }));
+  }
+};
+
+function aiProvider(cfg) { return cfg.aiProvider === "anthropic" ? AI_PROVIDER_ANTHROPIC : AI_PROVIDER_OPENAI; }
 
 // batas harian (biaya)
 function aiQuotaOk(cfg) {
@@ -617,33 +694,26 @@ async function cmdTanya(cfg, chatId, question) {
   if (!cfg.aiApiKey) return "API key AI belum diisi (Admin -> Config: bot.ai.apiKey).";
   if (!question || question.length < 5) return "Pakai: /tanya <pertanyaan>\nContoh: /tanya kenapa ONT budi@rw01 tidak bisa remote web?";
   if (!aiQuotaOk(cfg)) return "Batas pertanyaan AI hari ini (" + cfg.aiDailyLimit + ") sudah tercapai. Ubah di bot.ai.dailyLimit.";
-  audit("TANYA " + chatId + " " + JSON.stringify(question.slice(0, 200)));
-  const messages = [{ role: "user", content: question }];
+  audit("TANYA " + chatId + " " + JSON.stringify(question.slice(0, 200)) + " provider=" + cfg.aiProvider);
+  const prov = aiProvider(cfg);
+  const messages = prov.init(question);
   let usedTools = 0, inTok = 0, outTok = 0;
   for (let step = 0; step < 10; step++) {
-    const res = await claude(cfg, {
-      model: cfg.aiModel, max_tokens: 16000,
-      system: AI_SYSTEM, tools: AI_TOOLS, messages: messages,
-      output_config: { effort: "medium" },
-      cache_control: { type: "ephemeral" }
-    });
-    if (res.usage) { inTok += res.usage.input_tokens || 0; outTok += res.usage.output_tokens || 0; }
-    if (res.stop_reason === "refusal") return "AI menolak menjawab pertanyaan ini.";
-    // kirim balik konten asisten utuh (termasuk blok thinking) agar percakapan valid
-    messages.push({ role: "assistant", content: res.content });
-    const calls = (res.content || []).filter((b) => b.type === "tool_use");
-    if (res.stop_reason !== "tool_use" || !calls.length) {
-      const text = (res.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
-      log("AI selesai: tools=" + usedTools + " in=" + inTok + " out=" + outTok + " stop=" + res.stop_reason);
-      return (text || "(AI tidak memberi jawaban)") + (res.stop_reason === "max_tokens" ? "\n\n(jawaban terpotong)" : "");
+    const res = await prov.call(cfg, messages);
+    inTok += res.usage.in; outTok += res.usage.out;
+    if (res.stopReason === "refusal") return "AI menolak menjawab pertanyaan ini.";
+    prov.appendAssistant(messages, res);
+    if (res.stopReason !== "tool_use" || !res.toolCalls.length) {
+      log("AI selesai: provider=" + cfg.aiProvider + " tools=" + usedTools + " in=" + inTok + " out=" + outTok + " stop=" + res.stopReason);
+      return (res.text || "(AI tidak memberi jawaban)") + (res.stopReason === "max_tokens" ? "\n\n(jawaban terpotong)" : "");
     }
-    const results = await Promise.all(calls.map(async (c) => {
+    const results = await Promise.all(res.toolCalls.map(async (c) => {
       usedTools++;
       let out, isErr = false;
       try { out = String(await aiRunTool(cfg, c.name, c.input)); } catch (e) { out = "error: " + e.message; isErr = true; }
-      return { type: "tool_result", tool_use_id: c.id, content: out.slice(0, 12000), is_error: isErr };
+      return { id: c.id, content: out.slice(0, 12000), isErr: isErr };
     }));
-    messages.push({ role: "user", content: results });
+    prov.appendToolResults(messages, results);
   }
   return "AI butuh terlalu banyak langkah; coba perjelas pertanyaannya.";
 }
@@ -775,7 +845,7 @@ async function main() {
       const k = Object.keys(PENDING)[0];
       console.log(res.text + (k ? "\n[selftest] parameter yang akan diubah: " + PENDING[k].path : ""));
     }
-    else if (what === "config") console.log(JSON.stringify({ enabled: cfg.enabled, tokenSet: !!cfg.token, allowedChatIds: cfg.allowedChatIds, alertChatIds: cfg.alertChatIds, alertEveryMinutes: cfg.alertEveryMinutes, alertFaultThreshold: cfg.alertFaultThreshold }));
+    else if (what === "config") console.log(JSON.stringify({ enabled: cfg.enabled, tokenSet: !!cfg.token, allowedChatIds: cfg.allowedChatIds, alertChatIds: cfg.alertChatIds, alertEveryMinutes: cfg.alertEveryMinutes, alertFaultThreshold: cfg.alertFaultThreshold, aiEnabled: cfg.aiEnabled, aiProvider: cfg.aiProvider, aiModel: cfg.aiModel, aiApiKeySet: !!cfg.aiApiKey }));
     else console.log("selftest: cek <q> | status | fault | config");
     return;
   }
