@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="$HOME/genieacs-bot"
 U="$(id -un)"
-command -v mongo >/dev/null || echo "PERINGATAN: bot membaca Config lewat perintah 'mongo'. Jika hanya ada mongosh, buat symlink: sudo ln -s \$(command -v mongosh) /usr/local/bin/mongo"
+command -v mongo >/dev/null || command -v mongosh >/dev/null || echo "PERINGATAN: shell mongo tidak ditemukan (butuh 'mongo' atau 'mongosh') -- bot tidak akan bisa membaca Config"
 mkdir -p "$DEST"
 cp "$ROOT/bot/bot.js" "$DEST/bot.js"
 [ -f "$DEST/config.json" ] || cp "$ROOT/bot/config.example.json" "$DEST/config.json"

@@ -53,7 +53,7 @@ node ~/genieacs-bot/bot.js --selftest cek <kata kunci>
 ```
 Log: `journalctl -u genieacs-bot -f`
 
-Bot membaca Config lewat perintah `mongo`. Kalau server hanya punya `mongosh`, buat symlink: `sudo ln -s $(command -v mongosh) /usr/local/bin/mongo`.
+Bot membaca Config lewat `mongosh` atau `mongo`, mana saja yang tersedia (dideteksi otomatis saat jalan).
 
 ## Asisten AI (`/tanya`)
 
