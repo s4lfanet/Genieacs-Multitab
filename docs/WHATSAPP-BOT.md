@@ -22,7 +22,9 @@ Kalau risiko di atas tidak bisa diterima, pakai [bot Telegram](TELEGRAM-BOT.md) 
 3. **Scan QR dari browser** (tanpa terminal):
    - Login dulu ke GenieACS seperti biasa, misalnya `http://192.168.1.10:3000`.
    - Buka **`http://192.168.1.10:3010/`** (host/IP **sama** dengan GenieACS, port 3010).
-   - Di HP: **WhatsApp → Perangkat Tertaut → Tautkan Perangkat**, arahkan ke QR. Halaman memperbarui QR sendiri (tiap ±20 detik) dan berubah jadi **✅ Tersambung** setelah berhasil.
+   - Di HP: **WhatsApp → Perangkat Tertaut → Tautkan Perangkat**, arahkan ke QR.
+   - Halaman **tidak** memperbarui sendiri. QR dari WhatsApp hanya berlaku ±20 detik: kalau gagal scan, klik **🔄 Refresh** untuk QR terbaru. Setelah scan, klik **🔄 Refresh** lagi untuk melihat **✅ Tersambung**.
+   - Satu sesi QR berlangsung ±2–3 menit. Setelah itu bot **berhenti** membuat QR (tidak terus-menerus) dan halaman menampilkan tombol **Minta QR baru**.
    - Opsional, tombol pintasan hijau **📱 Bot WA** di bar tab halaman device: `bash scripts/wa-ui-link.sh` (atau `bash scripts/wa-ui-link.sh http://alamat-anda:3010/` kalau admin membuka GenieACS lewat alamat lain). Jalankan lagi sesudah `install.sh`, karena installer mengganti semua `ui.*`.
 
    Halaman ini **hanya terbuka untuk yang sudah login GenieACS**: browser mengirim cookie login GenieACS (`genieacs-ui-jwt`) dan bot memverifikasinya dengan `GENIEACS_UI_JWT_SECRET` yang sama (dibaca dari file env service `genieacs-ui`). Tanpa login → "Login GenieACS dulu". QR digambar di server, tidak dikirim ke layanan luar. Ini penting: siapa pun yang scan QR duluan, nomornyalah yang terhubung ke bot.
@@ -62,4 +64,5 @@ Log: `journalctl -u genieacs-wa-bot -f`
 - Hanya nomor terdaftar (`wabot.allowedNumbers`) yang dilayani.
 - Aksi selalu lewat konfirmasi teks dan dicatat di `~/genieacs-bot/audit.log` (log gabungan dengan bot Telegram, ditandai `WA `).
 - `wa_auth/` berisi kunci sesi WhatsApp — perlakukan seperti password, jangan commit ke git (sudah ada di `.gitignore`).
-- Kalau perangkat bot dicabut dari HP (logout), bot otomatis menghapus sesi lama dan menyiapkan QR baru di halaman scan — cukup buka halaman itu lagi dan scan ulang.
+- Kalau perangkat bot dicabut dari HP (logout), bot menghapus sesi lama lalu menunggu. Buka halaman scan, klik **Minta QR baru**, dan scan ulang.
+- Koneksi yang sudah login tetap disambung ulang otomatis kalau putus karena jaringan; yang manual hanya pembuatan QR.

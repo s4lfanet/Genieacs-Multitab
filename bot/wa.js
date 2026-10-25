@@ -43,7 +43,7 @@ const QR_FILE = path.join(__dirname, "wa_qr.txt");
 // browser otomatis mengirim cookie "genieacs-ui-jwt" (cookie terikat host, bukan port), lalu
 // diverifikasi dengan GENIEACS_UI_JWT_SECRET yang sama dengan GenieACS. QR digambar di server
 // (SVG), tidak dikirim ke layanan luar.
-const waState = { qr: null, connected: false, me: null, since: null };
+const waState = { qr: null, qrAt: null, connected: false, me: null, since: null, idle: false };
 
 function qrSvg(text) {
   const QRCode = require("qrcode-terminal/vendor/QRCode");
@@ -96,7 +96,14 @@ function startHttp(port) {
     }
     if (url === "/status.json") {
       res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-      return res.end(JSON.stringify({ connected: waState.connected, me: waState.me, qr: !!waState.qr, since: waState.since }));
+      return res.end(JSON.stringify({ connected: waState.connected, me: waState.me, qr: !!waState.qr,
+        qrAge: waState.qrAt ? Math.round((Date.now() - waState.qrAt) / 1000) : null, idle: waState.idle, since: waState.since }));
+    }
+    if (url === "/new-qr" && req.method === "POST") {
+      const r = requestNewQr();
+      log("Halaman scan: " + (user === true ? "-" : user) + " minta QR baru -> " + r);
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      return res.end(JSON.stringify({ result: r }));
     }
     if (url !== "/") { res.writeHead(404); return res.end(); }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
@@ -104,17 +111,28 @@ function startHttp(port) {
 <title>Bot WhatsApp - GenieACS</title>
 <style>body{font-family:system-ui,sans-serif;background:#f2eddf;margin:0;padding:24px;color:#2d3748}
 .card{max-width:460px;margin:0 auto;background:#fff;border-radius:10px;padding:24px;box-shadow:0 2px 10px #0002;text-align:center}
-#qr{width:300px;max-width:100%;image-rendering:pixelated}.ok{color:#2f855a;font-size:20px;font-weight:700}.muted{color:#718096;font-size:14px}</style>
+#qr{width:300px;max-width:100%;image-rendering:pixelated}.ok{color:#2f855a;font-size:20px;font-weight:700}.muted{color:#718096;font-size:14px}
+button{font-size:16px;padding:10px 18px;margin:6px;border-radius:6px;border:1px solid #2b6cb0;background:#2b6cb0;color:#fff;cursor:pointer}
+button.alt{background:#fff;color:#2b6cb0}button:disabled{opacity:.5;cursor:default}</style>
 <div class="card"><h2>📱 Bot WhatsApp</h2><div id="st" class="muted">Memuat…</div><div id="box"></div>
-<p class="muted">Di HP: WhatsApp → <b>Perangkat Tertaut</b> → <b>Tautkan Perangkat</b>, lalu arahkan kamera ke QR.<br>QR berganti otomatis tiap ±20 detik; halaman ini memperbaruinya sendiri.</p>
+<div><button id="rf" onclick="load()">🔄 Refresh</button><button id="nq" class="alt" onclick="newQr()" style="display:none">Minta QR baru</button></div>
+<p class="muted">Di HP: WhatsApp → <b>Perangkat Tertaut</b> → <b>Tautkan Perangkat</b>, lalu arahkan kamera ke QR.<br>
+QR dari WhatsApp hanya berlaku ±20 detik. Kalau gagal scan, klik <b>🔄 Refresh</b> untuk QR terbaru.<br>
+Setelah scan berhasil, klik <b>🔄 Refresh</b> untuk melihat status tersambung.</p>
 <p class="muted">Login sebagai: ${String(user === true ? "-" : user).replace(/[<>&]/g, "")}</p></div>
 <script>
-async function tick(){try{const s=await (await fetch("status.json",{cache:"no-store"})).json();
-const st=document.getElementById("st"),box=document.getElementById("box");
+async function load(){const st=document.getElementById("st"),box=document.getElementById("box"),nq=document.getElementById("nq");
+st.textContent="Memuat…";
+try{const s=await (await fetch("status.json",{cache:"no-store"})).json();nq.style.display="none";
 if(s.connected){st.innerHTML='<span class="ok">✅ Tersambung</span>'+(s.me?'<br>Nomor bot: '+s.me:'');box.innerHTML='';}
-else if(s.qr){st.textContent='Belum tersambung — scan QR di bawah:';box.innerHTML='<img id="qr" src="qr.svg?t='+Date.now()+'">';}
-else{st.textContent='Menunggu QR dari WhatsApp…';box.innerHTML='';}}catch(e){document.getElementById("st").textContent="Bot tidak menjawab: "+e;}}
-tick();setInterval(tick,4000);
+else if(s.qr){st.textContent='Belum tersambung — scan QR di bawah (dibuat '+s.qrAge+' detik lalu):';box.innerHTML='<img id="qr" src="qr.svg?t='+Date.now()+'">';}
+else if(s.idle){st.textContent='QR sudah kedaluwarsa. Klik "Minta QR baru" lalu siapkan HP Anda.';box.innerHTML='';nq.style.display='inline-block';}
+else{st.textContent='Menyiapkan QR… klik Refresh beberapa detik lagi.';box.innerHTML='';}}
+catch(e){st.textContent="Bot tidak menjawab: "+e;}}
+async function newQr(){const b=document.getElementById("nq");b.disabled=true;
+try{await fetch("new-qr",{method:"POST"});}catch(e){}
+setTimeout(()=>{b.disabled=false;load();},4000);}
+load();
 </script>`);
   });
   srv.on("error", (e) => log("HTTP QR gagal di port " + port + ": " + e.message));
@@ -224,33 +242,45 @@ async function handleText(cfg, sock, jid, text) {
   return sock.sendMessage(jid, { text: out });
 }
 
+// Sesi pairing (QR) hanya dibuat saat service start atau saat admin klik "Minta QR baru" di halaman
+// scan -- TIDAK diulang otomatis terus-menerus setelah QR habis. Koneksi yang SUDAH login tetap
+// disambung ulang otomatis kalau putus (supaya bot tidak mati karena gangguan jaringan).
+let sockRef = null;
+
 async function connect() {
+  waState.idle = false; waState.qr = null;
   fs.mkdirSync(AUTH_DIR, { recursive: true });
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const sock = makeWASocket({ auth: state, printQRInTerminal: false, browser: ["GenieACS Bot", "Chrome", "1.0"] });
+  sockRef = sock;
 
   sock.ev.on("creds.update", saveCreds);
 
   sock.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
     if (qr) {
-      waState.qr = qr; waState.connected = false;
+      waState.qr = qr; waState.connected = false; waState.qrAt = Date.now();
       qrcodeTerminal.generate(qr, { small: true });
       try { fs.writeFileSync(QR_FILE, qr); } catch (e) { /* abaikan */ }
-      log("QR baru dibuat. Scan dari WhatsApp di HP: Perangkat Tertaut -> Tautkan Perangkat.");
-      log("Kalau tidak bisa lihat terminal, QR mentah ada di " + QR_FILE + " (rubah ke gambar pakai https://... atau tempel ke generator QR).");
+      log("QR baru dibuat. Scan di halaman web (port " + loadConfig().httpPort + ") atau dari terminal ini.");
     }
     if (connection === "close") {
+      if (sockRef !== sock) return; // socket lama yang sudah diganti
       const statusCode = lastDisconnect && lastDisconnect.error && lastDisconnect.error.output && lastDisconnect.error.output.statusCode;
       const loggedOut = DisconnectReason && statusCode === DisconnectReason.loggedOut;
-      waState.connected = false; waState.me = null;
+      const wasLoggedIn = !!(state.creds && state.creds.registered) && !loggedOut;
+      waState.connected = false; waState.me = null; waState.qr = null;
       if (loggedOut) {
-        // sesi dicabut dari HP: hapus sesi lama lalu minta QR baru otomatis (tanpa perlu terminal)
         try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch (e) { /* abaikan */ }
-        setTimeout(connect, 3000);
       }
-      log("WA terputus" + (loggedOut ? " (logout dari HP -- sesi dihapus, QR baru disiapkan di halaman scan)" : ", mencoba sambung ulang..."));
-      if (!loggedOut) setTimeout(connect, 5000);
+      if (wasLoggedIn) {
+        log("WA terputus, mencoba sambung ulang...");
+        setTimeout(connect, 5000);
+      } else {
+        waState.idle = true; sockRef = null;
+        log("WA belum tersambung" + (loggedOut ? " (logout dari HP, sesi dihapus)" : " (QR kedaluwarsa)") +
+          ". Menunggu admin klik 'Minta QR baru' di halaman scan.");
+      }
     } else if (connection === "open") {
       waState.connected = true; waState.qr = null; waState.since = new Date().toISOString();
       waState.me = sock.user && sock.user.id ? numFromJid(sock.user.id).replace(/:.*/, "") : null;
@@ -275,17 +305,27 @@ async function connect() {
     }
   });
 
+  return sock;
+}
+
+// Timer dipasang SEKALI (bukan per sambung ulang -- dulu tiap reconnect menambah timer alert baru)
+function startTimers() {
   let lastAlert = 0;
   setInterval(() => {
     const cfg = loadConfig();
-    if (!cfg.enabled || Date.now() - lastAlert < cfg.alertEveryMinutes * 60000) return;
+    if (!cfg.enabled || !waState.connected || !sockRef || Date.now() - lastAlert < cfg.alertEveryMinutes * 60000) return;
     lastAlert = Date.now();
-    checkAlerts(cfg, (jid, text) => sock.sendMessage(jid, { text })).catch((e) => log("WA alert", e.message));
+    checkAlerts(cfg, (jid, text) => sockRef.sendMessage(jid, { text })).catch((e) => log("WA alert", e.message));
   }, 60000);
-
   setInterval(pendingCleanup, 60000);
+}
 
-  return sock;
+// dipanggil dari tombol "Minta QR baru" di halaman scan
+function requestNewQr() {
+  if (waState.connected) return "sudah tersambung";
+  if (!waState.idle) return "sesi QR masih aktif";
+  connect().catch((e) => log("WA connect", e.message));
+  return "QR baru diminta";
 }
 
 async function main() {
@@ -302,6 +342,7 @@ async function main() {
   }
   log("Memulai bot WhatsApp.");
   startHttp(loadConfig().httpPort);
+  startTimers();
   await connect();
 }
 
