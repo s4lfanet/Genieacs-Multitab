@@ -34,6 +34,10 @@
     B.bot.forEach(function (d) { if (insertIfAbsent(d)) m++; });
     say("Config bot.*: " + m + " key contoh ditambahkan (isi token & chat ID di Admin -> Config)");
   }
+  if (B.baselinePresets) {
+    B.baselinePresets.forEach(function (p) { upsert("presets", p); });
+    say("Preset dasar (aman, tidak ubah ONT) dipasang: " + B.baselinePresets.map(function (p) { return p._id; }).join(", "));
+  }
   if (B.presets) {
     B.presets.forEach(function (p) { upsert("presets", p); });
     say("Preset dipasang: " + B.presets.map(function (p) { return p._id + " -> " + p.configurations[0].name; }).join(", "));

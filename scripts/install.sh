@@ -5,8 +5,10 @@
 #   - Tampilan UI multi-tab: semua key Config ui.* (DIGANTI seluruhnya) + branding.* (jika belum ada)
 #   - Virtual Parameters (29 VP)
 #   - Provisions (bootstrap, default, inform2, useradmin2, remoteweb, nokia_pppoe)
-#     -> provision hanya jalan bila dipanggil preset. Yang langsung aktif hanya
-#        "default" & "bootstrap" karena preset bawaan GenieACS memanggilnya.
+#     -> provision hanya jalan bila dipanggil preset. Preset "bootstrap" dan "default"
+#        dipasang otomatis bersama provisions (aman: discovery + trigger VirtualParameters,
+#        tidak mengubah setelan ONT). Provision lain (inform2/useradmin2/remoteweb) baru aktif
+#        lewat flag --preset-* di bawah.
 #
 # Opsional (MENGUBAH setelan ONT, baca docs/PROVISIONS-VP.md dulu):
 #   --preset-inform     preset inform -> inform2 (URL ACS, user/pass ACS, conn request, interval)

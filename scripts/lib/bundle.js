@@ -18,7 +18,13 @@ if (on("ui")) {
   B.branding = cfg.filter(d => d._id.startsWith("branding."));
 }
 if (on("vp")) B.vp = scripts("virtual-parameters");
-if (on("prov")) B.prov = scripts("provisions");
+if (on("prov")) {
+  B.prov = scripts("provisions");
+  // bootstrap & default tidak mengubah setelan ONT (hanya discovery + trigger VirtualParameters),
+  // jadi dipasang bersama provisions, tanpa perlu flag --preset-*. Tanpa preset ini, provision
+  // bootstrap.js/default.js yang baru saja diimpor tidak akan pernah dipanggil oleh GenieACS.
+  B.baselinePresets = readJson("presets/presets.json").filter(p => p._id === "bootstrap" || p._id === "default");
+}
 if (on("bot")) B.bot = readJson("config/bot-config.example.json");
 const want = (opt.presets || "").split(",").filter(Boolean);
 if (want.length) {
