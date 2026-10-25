@@ -10,6 +10,16 @@ const http = require("http");
 const crypto = require("crypto");
 const { execFileSync } = require("child_process");
 
+// MongoDB 6+ tidak lagi menyertakan shell lama "mongo", hanya "mongosh". Deteksi sekali, cache.
+let MONGO_BIN = null;
+function mongoBin() {
+  if (MONGO_BIN) return MONGO_BIN;
+  for (const b of ["mongosh", "mongo"]) {
+    try { execFileSync(b, ["--version"], {stdio: "ignore"}); MONGO_BIN = b; return b; } catch (e) { /* coba berikutnya */ }
+  }
+  throw new Error('shell mongo tidak ditemukan ("mongosh" atau "mongo")');
+}
+
 const PUB = process.env.GENIEACS_PUBLIC || ["/usr/local/lib/node_modules/genieacs/public", "/usr/lib/node_modules/genieacs/public", "/opt/genieacs/dist/public"].find(p => fs.existsSync(p));
 const DIR = __dirname;
 const ORIG = path.join(DIR, "orig");
@@ -46,7 +56,7 @@ function writeIfChanged(f, buf) {
 }
 
 function readConfig() {
-  const out = execFileSync("mongo", ["genieacs", "--quiet", "--eval",
+  const out = execFileSync(mongoBin(), ["genieacs", "--quiet", "--eval",
     'var o={};db.config.find({_id:/^branding\\./}).forEach(function(d){o[d._id]=d.value});' +
     'var l=o["branding.logo"];l=l?l.replace(/^[\'"]|[\'"]$/g,""):"";' +
     'var f=l?db.fs.files.findOne({_id:l}):null;o.__file=f?{len:f.length,date:f.uploadDate}:null;print(JSON.stringify(o))'],

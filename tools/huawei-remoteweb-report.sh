@@ -18,11 +18,14 @@
 NBI=http://127.0.0.1:7557
 SEC=InternetGatewayDevice.X_HW_Security.AclServices
 LOG=$HOME/genieacs-backup/huawei-remoteweb-report.log
+# MongoDB 6+ tidak lagi menyertakan shell lama "mongo", hanya "mongosh"
+MONGO="$(command -v mongo || command -v mongosh)"
+[ -n "$MONGO" ] || { echo 'ERROR: shell mongo tidak ditemukan ("mongosh" atau "mongo")'; exit 1; }
 
 enc() { printf '%s' "$1" | sed 's/%/%25/g; s/ /%20/g'; }
 web() { if [ -n "$1" ] && [ "$1" != "-" ]; then curl -s -m 5 -o /dev/null -w '%{http_code}' "http://$1/"; else echo 000; fi; }
 
-mongo genieacs --quiet --eval '
+"$MONGO" genieacs --quiet --eval '
   db.devices.find({"_deviceId._Manufacturer": /Huawei/, _lastInform: {$gt: new Date(Date.now() - 900000)}},
     {"VirtualParameters.pppoeIP": 1, "VirtualParameters.IPTR069": 1, "VirtualParameters.pppoeUsername": 1}).forEach(function(d){
     var v = d.VirtualParameters || {};
@@ -43,7 +46,7 @@ done < /tmp/hw-report-online.lst
     rc=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$NBI/devices/$(enc "$ID")/tasks?connection_request&timeout=40000" \
       --data "{\"name\":\"refreshObject\",\"objectName\":\"$SEC\"}")
     if [ "$rc" != "200" ]; then echo "OFFLINE  $ID ($U) ppp=$P tr069=$T"; continue; fi
-    mongo genieacs --quiet --eval "
+    "$MONGO" genieacs --quiet --eval "
       var d = db.devices.findOne({_id: '$ID'});
       var a = d.InternetGatewayDevice.X_HW_Security && d.InternetGatewayDevice.X_HW_Security.AclServices;
       var why = [];

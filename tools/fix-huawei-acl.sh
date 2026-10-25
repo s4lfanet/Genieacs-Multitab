@@ -12,6 +12,9 @@ LIST=$1
 MODE=${2:-dry}
 NBI=http://127.0.0.1:7557
 ACL=InternetGatewayDevice.X_HW_Security.AclServices.AccessControl
+# MongoDB 6+ tidak lagi menyertakan shell lama "mongo", hanya "mongosh"
+MONGO="$(command -v mongo || command -v mongosh)"
+[ -n "$MONGO" ] || { echo 'ERROR: shell mongo tidak ditemukan ("mongosh" atau "mongo")'; exit 1; }
 
 enc() { printf '%s' "$1" | sed 's/%/%25/g; s/ /%20/g'; }
 
@@ -25,7 +28,7 @@ while read -r ID; do
   if [ "$rc" != "200" ]; then echo "SKIP  $ID refresh=$rc (offline/timeout)"; continue; fi
 
   # 2. hitung perubahan dari data yang baru dibaca
-  PLAN=$(mongo genieacs --quiet --eval "
+  PLAN=$($MONGO genieacs --quiet --eval "
     var d = db.devices.findOne({_id: '$ID'}, {'InternetGatewayDevice.X_HW_Security.AclServices.AccessControl': 1, 'VirtualParameters.pppoeIP': 1});
     var a = d.InternetGatewayDevice.X_HW_Security && d.InternetGatewayDevice.X_HW_Security.AclServices.AccessControl, pv = [];
     if (a && a.List) for (var i in a.List) { if (i[0] === '_') continue; var l = a.List[i];
@@ -53,6 +56,6 @@ while read -r ID; do
     --data "{\"name\":\"setParameterValues\",\"parameterValues\":$PV}")
   sleep 3
   web=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://$IP/)
-  nf=$(mongo genieacs --quiet --eval "print(db.faults.count({device: '$ID'}))")
+  nf=$($MONGO genieacs --quiet --eval "print(db.faults.count({device: '$ID'}))")
   echo "DONE  $ID spv=$rc web=$web faults=$nf"
 done < "$LIST"

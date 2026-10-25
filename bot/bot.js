@@ -17,6 +17,16 @@ const http = require("http");
 const https = require("https");
 const { execFileSync } = require("child_process");
 
+// MongoDB 6+ tidak lagi menyertakan shell lama "mongo", hanya "mongosh". Deteksi sekali, cache.
+let MONGO_BIN = null;
+function mongoBin() {
+  if (MONGO_BIN) return MONGO_BIN;
+  for (const b of ["mongosh", "mongo"]) {
+    try { execFileSync(b, ["--version"], { stdio: "ignore" }); MONGO_BIN = b; return b; } catch (e) { /* coba berikutnya */ }
+  }
+  throw new Error('shell mongo tidak ditemukan ("mongosh" atau "mongo")');
+}
+
 const CONFIG_FILE = path.join(__dirname, "config.json");
 const STATE_FILE = path.join(__dirname, "state.json");
 const REPORT_LOG = path.join(process.env.HOME || require("os").homedir(), "genieacs-backup", "huawei-remoteweb-report.log");
@@ -26,7 +36,7 @@ const REPORT_LOG = path.join(process.env.HOME || require("os").homedir(), "genie
 function readGenieConfig() {
   const js = "var o={}; db.config.find({_id: /^bot[.]/}).forEach(function(c){ o[c._id] = String(c.value); }); print(JSON.stringify(o))";
   try {
-    const out = execFileSync("mongo", ["genieacs", "--quiet", "--eval", js], { encoding: "utf8", timeout: 15000 });
+    const out = execFileSync(mongoBin(), ["genieacs", "--quiet", "--eval", js], { encoding: "utf8", timeout: 15000 });
     const o = JSON.parse(out.trim().split("\n").pop());
     const r = {};
     Object.keys(o).forEach((k) => {
