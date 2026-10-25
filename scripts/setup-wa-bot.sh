@@ -51,6 +51,15 @@ else
   echo "  (QR tetap bisa dilihat lewat: journalctl -u genieacs-wa-bot -f). Lihat docs/WHATSAPP-BOT.md."
 fi
 
+# Key wabot.* di Admin -> Config (hanya ditambahkan kalau belum ada; nilai yang sudah diisi tidak ditimpa)
+MONGO="$(command -v mongosh || command -v mongo || true)"
+if [ -n "$MONGO" ]; then
+  JS="$(node -e 'const a=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));
+    console.log("var n=0;"+a.map(d=>"if(!db.config.findOne({_id:"+JSON.stringify(d._id)+"})){db.config.insertOne("+JSON.stringify(d)+");n++}").join("")+
+    "db.cache.deleteMany({_id:\"ui-local-cache-hash\"});print(\"Config wabot.*: \"+n+\" key ditambahkan\")")' "$ROOT/config/wabot-config.example.json")"
+  "$MONGO" "${GENIEACS_DB:-genieacs}" --quiet --eval "$JS"
+fi
+
 PORT=3010
 sed -e "s#/home/USERNAME#$HOME#g" -e "s#USERNAME#$U#g" -e "s#/opt/node20/bin/node#$NODE20#" \
   -e "s#^EnvironmentFile=-.*#EnvironmentFile=-$ENVF#" \

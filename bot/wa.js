@@ -174,8 +174,10 @@ const lastPendingByChat = {};
 async function handleText(cfg, sock, jid, text) {
   const num = numFromJid(jid);
   if (cfg.allowedNumbers.indexOf(num) < 0) {
-    log("WA DITOLAK", num, JSON.stringify(text.slice(0, 40)));
-    return sock.sendMessage(jid, { text: "Akses ditolak. Nomor Anda: " + num + "\nMinta admin menambahkannya di GenieACS: Admin -> Config -> wabot.allowedNumbers" });
+    // Diam saja (tidak membalas): nomor bot sering nomor WA biasa yang juga dipakai chat dengan
+    // pelanggan/kontak lain -- jangan sampai mereka menerima balasan otomatis. Cukup dicatat di log.
+    log("WA diabaikan (nomor tidak terdaftar)", num);
+    return;
   }
   log("WA chat", num, JSON.stringify(text.slice(0, 60)));
 

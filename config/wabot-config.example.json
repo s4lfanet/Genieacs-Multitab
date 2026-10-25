@@ -1,0 +1,14 @@
+[
+ {
+  "_id": "wabot.enabled",
+  "value": "'false'"
+ },
+ {
+  "_id": "wabot.allowedNumbers",
+  "value": "''"
+ },
+ {
+  "_id": "wabot.actions.enabled",
+  "value": "'false'"
+ }
+]
