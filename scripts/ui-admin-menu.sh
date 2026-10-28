@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# Menu "🤖 Bot" di sidebar Admin GenieACS -> membuka halaman bot WhatsApp (QR & status, port 3010).
+# Menu di sidebar Admin GenieACS:
+#   "🤖 Bot"  -> halaman bot WhatsApp (QR & status, port 3010)
+#   "🗺 Peta" + "📡 ODP" -> peta pelanggan & ODP, halaman /peta.html di GenieACS itu sendiri (docs/MAP.md)
 #
 # Pemakaian:
-#   bash scripts/ui-admin-menu.sh            # pasang (port 3010)
-#   bash scripts/ui-admin-menu.sh 3010       # port lain
-#   bash scripts/ui-admin-menu.sh --remove   # kembalikan file asli
+#   bash scripts/ui-admin-menu.sh            # menu Bot saja (port 3010)
+#   bash scripts/ui-admin-menu.sh 3010       # menu Bot, port lain
+#   bash scripts/ui-admin-menu.sh --map      # menu Peta + ODP saja (tanpa port/service tambahan)
+#   bash scripts/ui-admin-menu.sh --bot --map  # keduanya; --bot=PORT untuk port bot lain
+#   bash scripts/ui-admin-menu.sh --remove   # kembalikan file asli (menghapus semua menu)
+# Menjalankan ulang menggantikan set menu sebelumnya (selalu dibangun dari salinan asli).
 #
 # Ini MENGUBAH 1 file tampilan GenieACS (public/app-*.js, butuh sudo). Program cwmp/nbi/fs/ui tidak
 # diubah. Salinan asli disimpan di ~/genieacs-uipatch/orig/. Update/instal ulang GenieACS menghapus
@@ -30,14 +35,34 @@ ui_ok() { local bad=0; sleep 3; for i in 1 2 3; do c="$(curl -s -o /dev/null -m 
 
 if [ "${1:-}" = "--remove" ]; then
   sudo install -m 644 "$BK" "$JS"
-  echo "menu Bot dihapus (file asli dikembalikan)"; ui_ok || true
+  sudo rm -f "$PUB/peta.html"
+  echo "menu dihapus (file asli dikembalikan; data peta di Config 'peta.data' tidak dihapus)"; ui_ok || true
   exit 0
 fi
 
-PORT="${1:-3010}"
+BOT=0; MAP=0
+if [ $# -eq 0 ]; then BOT=3010; fi
+for a in "$@"; do
+  case "$a" in
+    --bot) BOT=3010 ;; --bot=*) BOT="${a#--bot=}" ;;
+    --map) MAP=1 ;;
+    [0-9]*) BOT="$a" ;;
+    *) echo "Opsi tidak dikenal: $a"; exit 2 ;;
+  esac
+done
 TMP="$(mktemp --suffix=.mjs)"; trap 'rm -f "$TMP"' EXIT
-node "$ROOT/scripts/lib/ui-admin-menu.js" "$BK" "$TMP" "$PORT"
-node --check "$TMP"   # pastikan JS hasil patch tetap valid (.mjs: bundle GenieACS adalah modul ES)
+node "$ROOT/scripts/lib/ui-admin-menu.js" "$BK" "$TMP" "$BOT" "$MAP"
+# pastikan JS hasil patch tetap valid (.mjs: bundle GenieACS adalah modul ES).
+# Node < 14 tidak bisa memeriksa sintaks bundle (optional chaining dst). Di situ pengecekan dilewati HANYA bila
+# bundle sumbernya persis bundle GenieACS 1.2.13 (md5 di bawah) yang hasil patch-nya sudah divalidasi di Node baru.
+if [ "$(node -p 'parseInt(process.versions.node,10)')" -ge 14 ]; then
+  node --check "$TMP"
+elif [ "$(md5sum "$BK" | cut -c1-32)" = "6d764d1e119d90be9ca377907b0b654b" ]; then
+  echo "Node < 14: cek sintaks dilewati (bundle = GenieACS 1.2.13 yang sudah divalidasi)"
+else
+  echo "ERROR: Node < 14 tidak bisa memeriksa hasil patch dan bundle ini bukan 1.2.13 yang dikenal. Pakai Node 14+."; exit 1
+fi
+if [ "$MAP" != 0 ]; then sudo install -m 644 "$ROOT/map/peta.html" "$PUB/peta.html"; fi
 sudo install -m 644 "$TMP" "$JS"
-if ! ui_ok; then echo "!! UI tidak sehat -> kembalikan file asli"; sudo install -m 644 "$BK" "$JS"; exit 1; fi
-echo "Selesai. Buka GenieACS, tekan Ctrl+F5, lalu Admin -> 🤖 Bot."
+if ! ui_ok; then echo "!! UI tidak sehat -> kembalikan file asli"; sudo install -m 644 "$BK" "$JS"; sudo rm -f "$PUB/peta.html"; exit 1; fi
+echo "Selesai. Buka GenieACS, tekan Ctrl+F5, lalu Admin -> menu baru di sidebar (🗺 Peta, 📡 ODP, dan/atau 🤖 Bot)."

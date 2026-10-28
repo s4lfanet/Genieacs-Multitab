@@ -42,7 +42,7 @@ button{cursor:pointer;width:auto}button.pri{background:var(--pri);border-color:v
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 "use strict";
-var state={devices:[],odps:[],tab:"ont",sel:null,pick:null};
+var state={devices:[],odps:[],tab:location.hash==="#odp"?"odp":"ont",sel:null};
 var $=function(i){return document.getElementById(i)};
 function el(tag,props,kids){var e=document.createElement(tag);Object.keys(props||{}).forEach(function(k){if(k==="text")e.textContent=props[k];else if(k.slice(0,2)==="on")e[k]=props[k];else e.setAttribute(k,props[k])});(kids||[]).forEach(function(c){e.appendChild(c)});return e}
 function say(t){$("msg").textContent=t||""}
@@ -53,13 +53,46 @@ var sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_
 osm.addTo(map);L.control.layers({"Peta":osm,"Satelit":sat}).addTo(map);
 var layer=L.layerGroup().addTo(map);
 
+// ---- data: API GenieACS sendiri (sama-asal, memakai cookie login GenieACS) ----
+// ONT dibaca dari /api/devices (hanya GET). Lokasi & ODP disimpan di satu key Config "peta.data"
+// (JSON -> base64 dalam kutip tunggal, supaya tetap ekspresi Config yang valid).
+var CFG="peta.data";
 function api(method,path,body){
-  return fetch(path,{method:method,credentials:"same-origin",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined})
-    .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||("HTTP "+r.status));return j})});
+  return fetch(path,{method:method,credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.text().then(function(t){
+      if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
+      if(!r.ok)throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+      return t?JSON.parse(t):null})});
 }
+function readStore(){
+  return api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "'+CFG+'"')).then(function(r){
+    var s={devices:{},odps:{}},row=r&&r[0];
+    if(row&&row.value){try{s=JSON.parse(decodeURIComponent(escape(atob(String(row.value).replace(/^['"]|['"]$/g,"")))))}catch(e){throw new Error("data peta.data rusak")}}
+    s.devices=s.devices||{};s.odps=s.odps||{};return s});
+}
+function writeStore(s){
+  var v="'"+btoa(unescape(encodeURIComponent(JSON.stringify(s))))+"'";
+  return api("PUT","/api/config/"+CFG,{_id:CFG,value:v});
+}
+function mutate(fn){return readStore().then(function(s){var e=fn(s);if(e)throw new Error(e);return writeStore(s)})}
+function num(v,lo,hi){var n=Number(v);return isFinite(n)&&n>=lo&&n<=hi?n:null}
+function val(d,k){var x=d[k];return x&&x.value&&x.value[0]!=null?x.value[0]:null}
+
+var PROJ=["DeviceID.ID","DeviceID.SerialNumber","DeviceID.ProductClass","Events.Inform","VirtualParameters.pppoeUsername","VirtualParameters.RXPower","VirtualParameters.redaman"].join(",");
 function load(){
-  return api("GET","/api/devices").then(function(d){state.devices=d.devices;state.odps=d.odps;draw();say(d.devices.filter(function(x){return x.loc}).length+" dari "+d.devices.length+" ONT sudah dipetakan, "+d.odps.length+" ODP")})
-    .catch(function(e){say("Gagal memuat: "+e.message)});
+  return Promise.all([api("GET","/api/devices/?projection="+encodeURIComponent(PROJ)),readStore()]).then(function(r){
+    var devs=r[0]||[],st=r[1],now=Date.now();
+    state.devices=devs.map(function(d){
+      var id=val(d,"DeviceID.ID")||d._id,li=val(d,"Events.Inform"),t=typeof li==="number"?li:Date.parse(li)||0;
+      var m=String(val(d,"VirtualParameters.RXPower")!=null?val(d,"VirtualParameters.RXPower"):val(d,"VirtualParameters.redaman")!=null?val(d,"VirtualParameters.redaman"):"").match(/-?\d+(\.\d+)?/);
+      return {id:id,sn:val(d,"DeviceID.SerialNumber")||"",model:val(d,"DeviceID.ProductClass")||"",pppoe:val(d,"VirtualParameters.pppoeUsername")||"",
+        rx:m?Number(m[0]):null,online:t>0&&now-t<10*60*1000,loc:st.devices[id]||null};
+    });
+    var used={};Object.keys(st.devices).forEach(function(k){var o=st.devices[k].odp;if(o)used[o]=(used[o]||0)+1});
+    state.odps=Object.keys(st.odps).map(function(id){return Object.assign({id:id,used:used[id]||0},st.odps[id])});
+    draw();
+    say(state.devices.filter(function(x){return x.loc}).length+" dari "+state.devices.length+" ONT sudah dipetakan, "+state.odps.length+" ODP");
+  }).catch(function(e){say("Gagal memuat: "+e.message)});
 }
 function rxColor(d){if(!d.online)return "#dc2626";if(d.rx==null||isNaN(d.rx))return "#6b7280";return d.rx<-27?"#d97706":"#16a34a"}
 function icon(color,sq){return L.divIcon({className:"",html:'<div style="width:'+(sq?16:14)+'px;height:'+(sq?16:14)+'px;background:'+color+';border:2px solid #fff;border-radius:'+(sq?"3px":"50%")+';box-shadow:0 0 3px #000"></div>',iconSize:[18,18],iconAnchor:[9,9]})}
@@ -105,7 +138,7 @@ function select(kind,id){
     f.appendChild(el("div",{"class":"row"},[
       el("button",{"class":"pri",text:l.lat!=null?"Pindah lokasi":"Tandai di peta",onclick:function(){pick(function(ll){saveOnt(d,ll.lat,ll.lng)})}}),
       el("button",{text:"Simpan",onclick:function(){if(l.lat==null)return say("Tandai lokasi dulu");saveOnt(d,l.lat,l.lng)}}),
-      el("button",{"class":"bad",text:"Hapus",onclick:function(){if(confirm("Hapus lokasi ONT ini?"))api("DELETE","/api/loc/"+encodeURIComponent(d.id)).then(load).then(close)}})]));
+      el("button",{"class":"bad",text:"Hapus",onclick:function(){if(confirm("Hapus lokasi ONT ini?"))mutate(function(st){delete st.devices[d.id]}).then(load).then(close).catch(function(e){say(e.message)})}})]));
     if(l.lat!=null)map.setView([l.lat,l.lng],Math.max(map.getZoom(),17));
   }else{
     var o=state.odps.filter(function(x){return x.id===id})[0]||{};
@@ -116,19 +149,24 @@ function select(kind,id){
     field("Catatan","oNotes",o.notes).forEach(function(x){f.appendChild(x)});
     var idv=function(){return id||$("oId").value.trim()};
     var body=function(ll){return {name:$("oName").value,capacity:$("oCap").value,notes:$("oNotes").value,lat:ll.lat,lng:ll.lng}};
-    var putOdp=function(ll){var i=idv();if(!i)return say("ID ODP wajib");api("PUT","/api/odp/"+encodeURIComponent(i),body(ll)).then(load).then(function(){say("ODP tersimpan")}).catch(function(e){say(e.message)})};
+    var putOdp=function(ll){var i=idv();if(!i)return say("ID ODP wajib");var b=body(ll),cap=num(b.capacity,1,1024);
+      mutate(function(st){st.odps[i]={name:String(b.name||"").trim().slice(0,120)||i,lat:b.lat,lng:b.lng,capacity:cap===null?8:Math.floor(cap),notes:String(b.notes||"").slice(0,500)}}).then(load).then(function(){say("ODP tersimpan")}).catch(function(e){say(e.message)})};
     f.appendChild(el("div",{"class":"row"},[
       el("button",{"class":"pri",text:o.lat!=null?"Pindah lokasi":"Tandai di peta",onclick:function(){pick(putOdp)}}),
       el("button",{text:"Simpan",onclick:function(){if(o.lat==null)return say("Tandai lokasi dulu");putOdp({lat:o.lat,lng:o.lng})}}),
-      el("button",{"class":"bad",text:"Hapus",onclick:function(){if(id&&confirm("Hapus ODP ini?"))api("DELETE","/api/odp/"+encodeURIComponent(id)).then(load).then(close)}})]));
+      el("button",{"class":"bad",text:"Hapus",onclick:function(){if(id&&confirm("Hapus ODP ini?"))mutate(function(st){delete st.odps[id];Object.keys(st.devices).forEach(function(k){if(st.devices[k].odp===id)st.devices[k].odp=""})}).then(load).then(close).catch(function(e){say(e.message)})}})]));
     if(o.lat!=null)map.setView([o.lat,o.lng],Math.max(map.getZoom(),17));
   }
   list();
 }
 function close(){state.sel=null;$("edit").style.display="none";$("edit").textContent="";list()}
 function saveOnt(d,lat,lng){
-  api("PUT","/api/loc/"+encodeURIComponent(d.id),{lat:lat,lng:lng,name:$("fName").value,odp:$("fOdp").value,notes:$("fNotes").value})
-    .then(load).then(function(){say("Tersimpan")}).catch(function(e){say(e.message)});
+  var odp=$("fOdp").value,name=$("fName").value,notes=$("fNotes").value;
+  mutate(function(st){
+    if(num(lat,-90,90)===null||num(lng,-180,180)===null)return "lat/lng tidak valid";
+    if(odp&&!st.odps[odp])return "ODP tidak ada";
+    st.devices[d.id]={name:String(name).trim().slice(0,120),lat:lat,lng:lng,odp:odp,notes:String(notes).slice(0,500),updated:new Date().toISOString()};
+  }).then(load).then(function(){say("Tersimpan")}).catch(function(e){say(e.message)});
 }
 function pick(cb){
   var h=$("hint");h.textContent="Klik lokasi di peta (Esc batal)";h.style.display="block";map.getContainer().style.cursor="crosshair";
@@ -139,6 +177,7 @@ function pick(cb){
 }
 $("q").oninput=list;
 $("tOnt").onclick=function(){state.tab="ont";$("tOnt").className="on";$("tOdp").className="";list()};
+if(state.tab==="odp"){$("tOnt").className="";$("tOdp").className="on"}
 $("tOdp").onclick=function(){state.tab="odp";$("tOdp").className="on";$("tOnt").className="";list()};
 load();
 </script>

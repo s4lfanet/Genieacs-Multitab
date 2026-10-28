@@ -1,31 +1,29 @@
 # Peta Pelanggan & ODP (opsional)
 
-Halaman peta berdiri sendiri (Leaflet) untuk menandai lokasi ONT dan ODP. Tidak mengubah GenieACS, MongoDB, atau ONT.
+Halaman peta (Leaflet) untuk menandai lokasi ONT dan ODP, dibuka dari sidebar **Admin → 🗺 Peta** dan **📡 ODP**. Tidak ada service, port, atau password tambahan: halaman ini ikut GenieACS di port yang sama (mis. 3000), memakai login GenieACS Anda.
 
 ## Cara kerja
 
-- `map/map.js`: server Node tanpa npm (Node 12+). Membaca daftar ONT dari NBI (**hanya GET**: PPPoE user, SN, redaman, status online).
-- Lokasi ONT dan ODP disimpan di `~/genieacs-map/data/locations.json` (bukan di MongoDB GenieACS). Ikut backup folder itu.
+- `map/peta.html` disalin ke folder `public/` GenieACS (disajikan sebagai `/peta.html`, sama seperti logo). Menu sidebar membukanya di dalam halaman Admin.
+- **Daftar ONT**: `GET /api/devices` (API GenieACS sendiri, hanya baca): PPPoE user, SN, model, last inform, `RXPower` (teks "-14 dBm (Bagus)" dibaca angkanya).
+- **Lokasi & ODP**: disimpan di satu key **Admin → Config** bernama `peta.data` (JSON dikodekan base64 dalam kutip tunggal, supaya tetap ekspresi Config yang valid). Ikut backup Config. Setiap simpan membaca data terbaru lalu menulis ulang (dua admin menyimpan bersamaan di detik yang sama: yang terakhir menang).
 - Penanda ONT: hijau = online & redaman baik, kuning = redaman < -27 dBm, merah = offline, abu = redaman belum ada. Kotak biru = ODP; garis putus-putus = ONT ke ODP-nya.
+- Tidak ada perintah ke ONT sama sekali.
 
 ## Keamanan
 
-- Semua route wajib login (HTTP Basic, password di-hash scrypt, 5 salah = diblok 1 menit per IP).
-- Default hanya listen di `127.0.0.1`. Akses dari PC lewat SSH tunnel, atau lewat reverse proxy HTTPS (nginx) milik Anda. Basic auth lewat HTTP polos bisa disadap, jadi jangan buka `host` ke `0.0.0.0` tanpa HTTPS.
-- Tulis hanya ke file lokasi sendiri; tidak ada route yang mengirim perintah ke ONT. Request tulis ditolak bila Origin asing atau bukan `application/json`.
+- Halaman statisnya tidak berisi data. Semua data lewat `/api/*` GenieACS, yang menolak (401/403) tanpa login, dan menyimpan data peta butuh izin menulis Config (admin). Menu hanya tampil untuk user yang boleh mengubah Config.
 - Browser memuat Leaflet dari unpkg (dikunci SRI) dan tile dari OpenStreetMap/Esri, jadi perlu internet di sisi browser.
 
 ## Pasang
 
 ```bash
-bash scripts/setup-map.sh      # catat password yang tampil sekali
-ssh -L 7570:127.0.0.1:7570 user@server
-# buka http://127.0.0.1:7570/  (user: admin)
+bash scripts/ui-admin-menu.sh --map     # menu Peta + ODP (menambah --bot untuk menu Bot WA juga)
 ```
 
-Ubah port/host/NBI di `~/genieacs-map/config.json`, lalu `sudo systemctl restart genieacs-map`. Lupa password: hapus `config.json`, jalankan `setup-map.sh` lagi (data lokasi tetap).
+Lalu Ctrl+F5 di browser. Skrip ini mengubah **1 file** tampilan GenieACS (`public/app-*.js`; program cwmp/nbi/fs/ui tidak diubah), menyalin `peta.html` ke `public/`, menyimpan salinan asli di `~/genieacs-uipatch/orig/`, dan otomatis mengembalikan kalau UI tidak sehat. Update GenieACS menghapus patch; jalankan lagi. Hanya GenieACS 1.2.13 (titik sisip dicek, versi lain ditolak). Menghapus: `bash scripts/ui-admin-menu.sh --remove` (data `peta.data` tetap ada di Config).
 
 ## Pakai
 
-1. Tab **ODP** → "+ ODP baru" → isi ID, nama, kapasitas → "Tandai di peta".
-2. Tab **ONT** → pilih pelanggan (yang belum dipetakan tampil di atas) → isi nama/ODP → "Tandai di peta".
+1. **📡 ODP** → "+ ODP baru" → isi ID, nama, kapasitas → "Tandai di peta" → klik lokasi.
+2. **🗺 Peta** → pilih pelanggan (yang belum dipetakan tampil di atas) → isi nama/ODP → "Tandai di peta".
