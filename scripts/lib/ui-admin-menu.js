@@ -90,6 +90,8 @@ function themeMain() {
     if (t.inv) {
       css += r + "{filter:" + DARK + ";background:#e2e2e2}";
       css += r + " iframe," + r + " #acs-theme-btn," + r + " #acs-theme-panel{filter:" + DARK + "}";
+      // irisan pie & kotak legend: netralkan filter gelap supaya warnanya persis seperti di Config/palet tema
+      css += r + " .pie-chart>svg>path," + r + " .pie-chart .legend .color{filter:" + DARK + "}";
     }
   });
   css += "#acs-theme-btn{position:fixed;right:16px;bottom:16px;z-index:99999;font:600 14px sans-serif;padding:10px 16px;border:2px solid #2563eb;border-radius:22px;background:#fff;color:#1e3a8a;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35)}#acs-theme-btn:hover{background:#dbeafe}";
@@ -104,11 +106,40 @@ function themeMain() {
     var t = cur();
     h.setAttribute("data-acs-theme", t.id);
     h.classList.toggle("acs-dark", !!t.inv);
+    if (window.acsRedraw) window.acsRedraw(); // grafik Overview dihitung ulang dengan warna tema baru
     var b = d.getElementById("acs-theme-btn");
     if (b) b.textContent = "\u{1F3A8} " + t.n;
     var p = d.getElementById("acs-theme-panel");
     if (p) for (var i = 0; i < p.children.length; i++) p.children[i].className = p.children[i].getAttribute("data-id") === t.id ? "on" : "";
   }
+  // ---- warna grafik Overview (pie) mengikuti tema ----
+  // GenieACS mengambil warna irisan/legend dari Config (ui.overview.charts.*.color). Kode grafik di bundle dipatch
+  // supaya warnanya lewat window.acsChartColor. Warna semantik (merah/oranye/kuning: off, kritis, peringatan) dan
+  // abu-abu dibiarkan; warna dingin (biru/hijau/ungu) diganti palet tema, berurutan per irisan. Terang/Gelap = asli.
+  var CP = {
+    laut: ["#0b5fa5", "#2b8fd9", "#6cb6ee", "#00a3a3", "#5b6fd6", "#9fc8ea"],
+    hutan: ["#1f7a3d", "#4cae5f", "#8ed08b", "#0f8a7a", "#7bb33a", "#b9dd9a"],
+    senja: ["#6b3fa0", "#9467c9", "#c0a2e6", "#4a52b3", "#a04fa6", "#d9c9f0"],
+    mawar: ["#b02a63", "#d9568a", "#f08fb5", "#8c2f8a", "#c24fb0", "#f3c6dc"]
+  };
+  function hs(hex) {
+    var m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex).trim());
+    if (!m) return null;
+    var x = m[1].length === 3 ? m[1].replace(/./g, function (c) { return c + c; }) : m[1];
+    var r = parseInt(x.substr(0, 2), 16) / 255, g = parseInt(x.substr(2, 2), 16) / 255, b = parseInt(x.substr(4, 2), 16) / 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), dl = mx - mn;
+    if (dl < 0.08) return { h: 0, s: 0 };
+    var h = mx === r ? ((g - b) / dl) % 6 : mx === g ? (b - r) / dl + 2 : (r - g) / dl + 4;
+    return { h: (h * 60 + 360) % 360, s: dl / (1 - Math.abs(mx + mn - 1) || 1) };
+  }
+  window.acsChartColor = function (color, idx) {
+    var pal = CP[cur().id.replace(/^gelap-/, "")];
+    if (!pal) return color;
+    var c = hs(color);
+    if (!c || c.s < 0.15) return color;
+    if (c.h < 70 || c.h >= 335) return color;
+    return pal[(idx || 0) % pal.length];
+  };
   function pick(id) {
     try { localStorage.setItem(K, id); } catch (e) { /* abaikan */ }
     apply();
@@ -150,6 +181,17 @@ function themeMain() {
 }
 const THEME = ";(" + themeMain.toString() + ")();\n";
 
+if (withTheme) {
+  patches.push(
+    // window.acsRedraw: dipakai tema untuk menggambar ulang grafik setelah ganti tema
+    ['var Xl=[', 'window.acsRedraw=function(){try{jt.default.redraw()}catch(e){}};var Xl=['],
+    // legend & irisan pie: warna lewat window.acsChartColor(warna asli, urutan irisan)
+    ['{style:`background-color: ${G(g.color,null)} !important;`}',
+     '{style:`background-color: ${window.acsChartColor?window.acsChartColor(G(g.color,null),Object.values(t).indexOf(g)):G(g.color,null)} !important;`}'],
+    ['p("path",{d:m,fill:G(g.color,null)})',
+     'p("path",{d:m,fill:window.acsChartColor?window.acsChartColor(G(g.color,null),Object.values(t).indexOf(g)):G(g.color,null)})']
+  );
+}
 for (const [a, b] of patches) {
   const n = s.split(a).length - 1;
   if (n !== 1) { console.error("titik sisip ditemukan " + n + "x (harus 1): " + a.slice(0, 70) + "... -- versi GenieACS tidak didukung"); process.exit(3); }
