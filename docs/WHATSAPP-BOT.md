@@ -68,3 +68,13 @@ Log: `journalctl -u genieacs-wa-bot -f`
 - `wa_auth/` berisi kunci sesi WhatsApp — perlakukan seperti password, jangan commit ke git (sudah ada di `.gitignore`).
 - Kalau perangkat bot dicabut dari HP (logout), bot menghapus sesi lama lalu menunggu. Buka halaman scan, klik **Minta QR baru**, dan scan ulang.
 - Koneksi yang sudah login tetap disambung ulang otomatis kalau putus karena jaringan; yang manual hanya pembuatan QR.
+
+## Scan QR dari sidebar Admin (tanpa port 3010)
+
+Kalau admin hanya bisa menjangkau port GenieACS UI (mis. lewat VPN yang hanya meneruskan 3000), halaman scan di port 3010 tidak bisa dibuka. Alternatifnya:
+
+```bash
+bash scripts/ui-admin-menu.sh --wapage     # atau --all
+```
+
+Menu **📱 Bot WA** muncul di sidebar Admin (`/wa.html`). Bot menulis status dan gambar QR ke Config (`wabot.status`, `wabot.qrsvg`; nilainya base64 dalam kutip tunggal) hanya saat isinya berubah, dan mengosongkan QR begitu tersambung. Tombol "Minta QR baru" menulis `wabot.requestQr`. Halaman ini memakai API GenieACS, jadi butuh login admin GenieACS. Perlu diingat QR (rahasia pairing) terbaca oleh admin yang bisa membuka Admin → Config selama QR aktif.

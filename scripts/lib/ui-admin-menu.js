@@ -2,19 +2,21 @@
 //   "🤖 Bot"  -> halaman bot WA (default port 3010)
 //   "🗺 Peta" + "📡 ODP" -> /peta.html di GenieACS sendiri (port yang sama, tanpa service lain; lihat docs/MAP.md)
 //   "🤖 Bot" (native) -> /bot.html: pengaturan bot Telegram/AI/WA di Admin -> Config (tanpa port lain)
+//   "📱 Bot WA" -> /wa.html: status & QR bot WhatsApp lewat Config (port GenieACS, tanpa port 3010)
 //   Tema gelap/terang: tombol di pojok kanan bawah, pilihan diingat per browser
-// Pakai: node ui-admin-menu.js <file app-*.js asli> <file keluaran> <portBot|0> [peta|0] [botpage|0] [tema|0]
+// Pakai: node ui-admin-menu.js <file app-*.js asli> <file keluaran> <portBot|0> [peta|0] [botpage|0] [tema|0] [wapage|0]
 // portBot 0 = tanpa menu Bot (iframe port); argumen ke-4..6 selain 0/kosong = pasang Peta&ODP / halaman Bot / tema.
 // Diuji pada GenieACS 1.2.13 (app-FOJWPRV7.js). Setiap titik sisip harus ditemukan TEPAT SEKALI,
 // kalau tidak (versi GenieACS lain) script berhenti tanpa menulis apa pun.
 "use strict";
 const fs = require("fs");
-const [src, out, portArg, mapArg, botPageArg, themeArg] = process.argv.slice(2);
+const [src, out, portArg, mapArg, botPageArg, themeArg, waPageArg] = process.argv.slice(2);
+const withWaPage = !!(parseInt(waPageArg, 10) || 0);
 const withBotPage = !!(parseInt(botPageArg, 10) || 0);
 const withTheme = !!(parseInt(themeArg, 10) || 0);
 const port = portArg === undefined ? 3010 : parseInt(portArg, 10) || 0;
 const withMap = !!(parseInt(mapArg, 10) || 0);
-if (!port && !withMap && !withBotPage && !withTheme) { console.error("tidak ada menu yang diminta"); process.exit(1); }
+if (!port && !withMap && !withBotPage && !withTheme && !withWaPage) { console.error("tidak ada menu yang diminta"); process.exit(1); }
 const pages = [];     // key halaman
 const items = [];     // <li> sidebar
 const routes = [];    // rute
@@ -27,6 +29,7 @@ function menu(key, label, title, src) {
   routes.push('"/admin/' + key + '":nt("' + key + '",{component:()=>({view:()=>(document.title="' + title + ' - GenieACS",' + frame(src) + ')})}),');
 }
 if (port) menu("bot", "🤖 Bot", "Bot", hostPort(port));
+if (withWaPage) menu("wa", "📱 Bot WA", "Bot WA", '"/wa.html"');
 if (withBotPage) menu("botcfg", "\u{1F916} Bot", "Bot", '"/bot.html"');
 if (withMap) {
   menu("peta", "🗺 Peta", "Peta", '"/peta.html"');
@@ -63,4 +66,4 @@ for (const [a, b] of patches) {
   s = s.replace(a, () => b);
 }
 fs.writeFileSync(out, MARK + "\n" + (withTheme ? THEME : "") + s);
-console.log("patch OK (bot:" + (port || "-") + " peta:" + (withMap ? "ya" : "-") + " botpage:" + (withBotPage ? "ya" : "-") + " tema:" + (withTheme ? "ya" : "-") + ")");
+console.log("patch OK (bot:" + (port || "-") + " peta:" + (withMap ? "ya" : "-") + " botpage:" + (withBotPage ? "ya" : "-") + " tema:" + (withTheme ? "ya" : "-") + " wa:" + (withWaPage ? "ya" : "-") + ")");

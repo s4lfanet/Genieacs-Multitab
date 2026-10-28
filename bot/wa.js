@@ -17,9 +17,10 @@
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
-const { execFileSync } = require("child_process");
+const { execFileSync, execFile } = require("child_process");
 const crypto = require("crypto");
 const core = require("./core.js");
+const { mongoBin } = core;
 const { log, sleep, audit, cmdCari, cmdOffline, cmdRedaman, cmdCek, cmdStatus, cmdFault,
   cmdSsid, cmdRefresh, cmdTanya, PENDING, PENDING_TTL, pendingCleanup, prepareChange, prepareReboot,
   executeChange, HELP, checkAlerts, readGenieConfig, list } = core;
@@ -324,7 +325,39 @@ async function connect() {
 }
 
 // Timer dipasang SEKALI (bukan per sambung ulang -- dulu tiap reconnect menambah timer alert baru)
+// ---------- QR lewat Config (untuk admin yang hanya bisa menjangkau port GenieACS UI) ----------
+// Status dan gambar QR (SVG) ditulis ke Config "wabot.status" / "wabot.qrsvg" (base64 dalam kutip tunggal, supaya
+// tetap ekspresi Config yang valid) dan dibaca halaman Admin -> "📱 Bot WA" (/wa.html) lewat API GenieACS, jadi
+// butuh login GenieACS. Hanya ditulis saat isinya berubah. QR dikosongkan begitu tersambung / kedaluwarsa.
+// Tombol "Minta QR baru" di halaman itu menulis "wabot.requestQr"; nilai yang berubah = permintaan baru.
+let lastPub = "";
+function publishState() {
+  const st = { connected: waState.connected, me: waState.me, since: waState.since, idle: waState.idle,
+    qrAt: waState.qrAt, hasQr: !!waState.qr, updated: Date.now() };
+  const stVal = "'" + Buffer.from(JSON.stringify(Object.assign({}, st, { updated: 0 }))).toString("base64") + "'";
+  const qrVal = waState.qr ? "'" + Buffer.from(qrSvg(waState.qr)).toString("base64") + "'" : "''";
+  if (stVal + qrVal === lastPub) return;
+  lastPub = stVal + qrVal;
+  const full = "'" + Buffer.from(JSON.stringify(st)).toString("base64") + "'";
+  const js = "var s=" + JSON.stringify(full) + ",q=" + JSON.stringify(qrVal) + ";" +
+    'db.config.updateOne({_id:"wabot.status"},{$set:{value:s}},{upsert:true});' +
+    'db.config.updateOne({_id:"wabot.qrsvg"},{$set:{value:q}},{upsert:true});';
+  let bin; try { bin = mongoBin(); } catch (e) { return; }
+  execFile(bin, ["genieacs", "--quiet", "--eval", js], { timeout: 15000 }, (err) => {
+    if (err) { lastPub = ""; log("WA: gagal menulis status ke Config:", err.message); }
+  });
+}
+
 function startTimers() {
+  let lastReq = String(readGenieConfig()["wabot.requestQr"] || "");
+  setInterval(() => {
+    try { publishState(); } catch (e) { log("WA publish", e.message); }
+  }, 3000);
+  setInterval(() => {
+    if (!waState.idle || waState.connected) return;
+    const r = String(readGenieConfig()["wabot.requestQr"] || "");
+    if (r && r !== lastReq) { lastReq = r; log("Halaman Bot WA: minta QR baru ->", requestNewQr()); }
+  }, 5000);
   let lastAlert = 0;
   setInterval(() => {
     const cfg = loadConfig();

@@ -8,6 +8,7 @@
 #   bash scripts/ui-admin-menu.sh 3010       # menu Bot, port lain
 #   bash scripts/ui-admin-menu.sh --all      # SEMUA di port GenieACS: menu 🤖 Bot (pengaturan), 🗺 Peta, 📡 ODP + tema gelap
 #   bash scripts/ui-admin-menu.sh --map      # hanya Peta + ODP
+#   bash scripts/ui-admin-menu.sh --wapage   # hanya halaman 📱 Bot WA (status & scan QR lewat Config)
 #   bash scripts/ui-admin-menu.sh --botpage  # hanya halaman 🤖 Bot (pengaturan bot di Admin -> Config)
 #   bash scripts/ui-admin-menu.sh --theme    # hanya tombol tema gelap/terang
 #   (opsi bisa digabung; --bot / --bot=PORT = menu Bot lama berupa iframe ke port QR WA, perlu port itu terjangkau)
@@ -38,12 +39,12 @@ ui_ok() { local bad=0; sleep 3; for i in 1 2 3; do c="$(curl -s -o /dev/null -m 
 
 if [ "${1:-}" = "--remove" ]; then
   sudo install -m 644 "$BK" "$JS"
-  sudo rm -f "$PUB/peta.html" "$PUB/bot.html"
+  sudo rm -f "$PUB/peta.html" "$PUB/bot.html" "$PUB/wa.html"
   echo "menu dihapus (file asli dikembalikan; data peta di Config 'peta.data' tidak dihapus)"; ui_ok || true
   exit 0
 fi
 
-BOT=0; MAP=0; BOTPAGE=0; THEME=0
+BOT=0; MAP=0; BOTPAGE=0; THEME=0; WAPAGE=0
 if [ $# -eq 0 ]; then BOT=3010; fi
 for a in "$@"; do
   case "$a" in
@@ -51,13 +52,14 @@ for a in "$@"; do
     --map) MAP=1 ;;
     --botpage) BOTPAGE=1 ;;
     --theme) THEME=1 ;;
-    --all) MAP=1; BOTPAGE=1; THEME=1 ;;
+    --wapage) WAPAGE=1 ;;
+    --all) MAP=1; BOTPAGE=1; THEME=1; WAPAGE=1 ;;
     [0-9]*) BOT="$a" ;;
     *) echo "Opsi tidak dikenal: $a"; exit 2 ;;
   esac
 done
 TMP="$(mktemp --suffix=.mjs)"; trap 'rm -f "$TMP"' EXIT
-node "$ROOT/scripts/lib/ui-admin-menu.js" "$BK" "$TMP" "$BOT" "$MAP" "$BOTPAGE" "$THEME"
+node "$ROOT/scripts/lib/ui-admin-menu.js" "$BK" "$TMP" "$BOT" "$MAP" "$BOTPAGE" "$THEME" "$WAPAGE"
 # pastikan JS hasil patch tetap valid (.mjs: bundle GenieACS adalah modul ES).
 # Node < 14 tidak bisa memeriksa sintaks bundle (optional chaining dst). Di situ pengecekan dilewati HANYA bila
 # bundle sumbernya persis bundle GenieACS 1.2.13 (md5 di bawah) yang hasil patch-nya sudah divalidasi di Node baru.
@@ -70,6 +72,7 @@ else
 fi
 if [ "$MAP" != 0 ]; then sudo install -m 644 "$ROOT/map/peta.html" "$PUB/peta.html"; fi
 if [ "$BOTPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/bot.html" "$PUB/bot.html"; fi
+if [ "$WAPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/wa.html" "$PUB/wa.html"; fi
 sudo install -m 644 "$TMP" "$JS"
-if ! ui_ok; then echo "!! UI tidak sehat -> kembalikan file asli"; sudo install -m 644 "$BK" "$JS"; sudo rm -f "$PUB/peta.html" "$PUB/bot.html"; exit 1; fi
-echo "Selesai. Buka GenieACS, tekan Ctrl+F5, lalu Admin -> menu baru di sidebar (🤖 Bot, 🗺 Peta, 📡 ODP) dan tombol tema di pojok kanan bawah."
+if ! ui_ok; then echo "!! UI tidak sehat -> kembalikan file asli"; sudo install -m 644 "$BK" "$JS"; sudo rm -f "$PUB/peta.html" "$PUB/bot.html" "$PUB/wa.html"; exit 1; fi
+echo "Selesai. Buka GenieACS, tekan Ctrl+F5, lalu Admin -> menu baru di sidebar (📱 Bot WA, 🤖 Bot, 🗺 Peta, 📡 ODP) dan tombol tema di pojok kanan bawah."

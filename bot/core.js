@@ -692,7 +692,7 @@ async function checkAlerts(cfg, sendFn) {
 
 module.exports = {
   // util
-  log, sleep, audit, loadState, saveState, request, nbiGet, readGenieConfig, list,
+  log, sleep, audit, loadState, saveState, request, nbiGet, readGenieConfig, list, mongoBin,
   // data
   val, escRe, ago, webCheck, PROJ, keys, on, firstVal, findDevices, formatDevice, deviceDetail, rxNum, shortLine,
   // perintah baca

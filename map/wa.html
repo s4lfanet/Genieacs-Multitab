@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bot WhatsApp</title>
+<style>
+:root{--bg:#fff;--fg:#1a1d21;--mut:#6b7280;--bd:#d9dde3;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--warn:#b45309}
+:root.dark{--bg:#161a20;--fg:#e6e8eb;--mut:#9aa3af;--bd:#2d333b;--pri:#60a5fa}
+*{box-sizing:border-box}body{margin:0;padding:14px 18px 30px;font:14px system-ui,sans-serif;background:var(--bg);color:var(--fg);max-width:720px}
+h2{font-size:16px;margin:0 0 10px}.card{border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:14px}
+.st{font-size:15px;font-weight:600}.ok{color:var(--ok)}.er{color:var(--bad)}.wr{color:var(--warn)}.m{color:var(--mut);font-size:12px}
+#qr{background:#fff;padding:6px;border-radius:8px;display:none;margin:10px 0;line-height:0;width:max-content;max-width:100%}#qr img{width:280px;max-width:100%;height:auto}
+button{font:inherit;cursor:pointer;background:var(--pri);color:#fff;border:0;border-radius:6px;padding:8px 16px}
+ol{margin:6px 0 0 18px;padding:0}li{margin:3px 0}
+</style>
+</head>
+<body>
+<h2>Bot WhatsApp</h2>
+<div class="card">
+  <div class="st" id="st">Memuat…</div>
+  <div class="m" id="sub"></div>
+  <div id="qr"><img id="qrimg" alt="QR WhatsApp"></div>
+  <button id="req" style="display:none">Minta QR baru</button>
+  <div class="m" id="msg" style="margin-top:8px"></div>
+</div>
+<div class="card m">
+  <b>Cara menautkan:</b>
+  <ol>
+    <li>Di HP: WhatsApp → <b>Perangkat tertaut</b> → <b>Tautkan perangkat</b>, lalu scan QR di atas (QR berganti tiap ±20 detik).</li>
+    <li>Setelah status <b class="ok">Tersambung</b>, buka <b>Admin → 🤖 Bot</b>: aktifkan "Bot WA aktif" dan isi nomor yang boleh memakai bot (format 628xxxx).</li>
+  </ol>
+  <p style="margin:10px 0 0">⚠ Baileys memakai protokol WhatsApp tidak resmi: ada risiko nomor diblokir. Gunakan nomor khusus, bukan nomor pribadi/penting. Logout lewat HP (Perangkat tertaut) memutus bot.</p>
+</div>
+<script>
+"use strict";
+(function(){function ap(){var d=false;try{d=window.parent!==window&&parent.document.documentElement.classList.contains("acs-dark")}catch(e){}document.documentElement.classList.toggle("dark",d)}
+ap();try{new MutationObserver(ap).observe(parent.document.documentElement,{attributes:true,attributeFilter:["class"]})}catch(e){}})();
+function $(i){return document.getElementById(i)}
+function api(method,path,body){
+  return fetch(path,{method:method,credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.text().then(function(t){
+      if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
+      if(!r.ok)throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+      return t?JSON.parse(t):null})});
+}
+function plain(v){v=String(v==null?"":v).trim();return v.length>=2&&v[0]==="'"&&v[v.length-1]==="'"?v.slice(1,-1):v}
+function get(key){return api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "'+key+'"')).then(function(r){return r&&r[0]?plain(r[0].value):""})}
+function setSt(t,c,sub){$("st").textContent=t;$("st").className="st "+(c||"");$("sub").textContent=sub||""}
+function refresh(){
+  Promise.all([get("wabot.status"),get("wabot.qrsvg")]).then(function(r){
+    var st=null;try{if(r[0])st=JSON.parse(decodeURIComponent(escape(atob(r[0]))))}catch(e){}
+    var qr=r[1],q=$("qr"),btn=$("req");
+    q.style.display="none";btn.style.display="none";
+    if(!st){setSt("Bot WA belum melapor","wr","Service genieacs-wa-bot belum jalan atau belum terpasang (scripts/setup-wa-bot.sh).");return}
+    if(st.connected){setSt("Tersambung"+(st.me?" sebagai "+st.me:""),"ok",st.since?"sejak "+new Date(st.since).toLocaleString():"");return}
+    if(st.hasQr&&qr){$("qrimg").src="data:image/svg+xml;base64,"+qr;q.style.display="block";setSt("Menunggu scan QR","wr","dibuat "+new Date(st.qrAt).toLocaleTimeString());return}
+    setSt("Belum tersambung","er","QR kedaluwarsa atau belum diminta.");btn.style.display="inline-block";
+  }).catch(function(e){setSt("Gagal memuat","er",e.message)});
+}
+$("req").onclick=function(){
+  $("msg").textContent="Meminta QR baru…";
+  api("PUT","/api/config/wabot.requestQr",{_id:"wabot.requestQr",value:"'"+Date.now()+"'"})
+    .then(function(){$("msg").textContent="Permintaan terkirim; QR muncul dalam beberapa detik."}).catch(function(e){$("msg").textContent="Gagal: "+e.message});
+};
+refresh();setInterval(refresh,3000);
+</script>
+</body>
+</html>
