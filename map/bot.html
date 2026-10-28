@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pengaturan Bot</title>
+<style>
+:root{--bg:#fff;--fg:#1a1d21;--mut:#6b7280;--bd:#d9dde3;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626}
+:root.dark{--bg:#161a20;--fg:#e6e8eb;--mut:#9aa3af;--bd:#2d333b;--pri:#60a5fa}
+*{box-sizing:border-box}body{margin:0;padding:14px 18px 40px;font:14px system-ui,sans-serif;background:var(--bg);color:var(--fg);max-width:820px}
+h2{font-size:16px;margin:22px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--bd)}h2:first-of-type{margin-top:0}
+p.d{margin:0 0 8px;color:var(--mut);font-size:12px}
+.f{display:grid;grid-template-columns:230px 1fr;gap:8px;align-items:center;margin:6px 0}
+.f label{font-size:13px}.f small{display:block;color:var(--mut);font-size:11px}
+input,select{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;width:100%;max-width:420px}
+button{font:inherit;cursor:pointer;background:var(--pri);color:#fff;border:0;border-radius:6px;padding:8px 16px}
+#bar{position:sticky;bottom:0;background:var(--bg);padding:10px 0;border-top:1px solid var(--bd);margin-top:16px;display:flex;gap:12px;align-items:center}
+#msg{font-size:13px}.ok{color:var(--ok)}.er{color:var(--bad)}.set{color:var(--ok);font-size:11px}
+@media (max-width:600px){.f{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="form">Memuat…</div>
+<div id="bar"><button id="save">Simpan</button><span id="msg"></span></div>
+<script>
+"use strict";
+(function(){function ap(){var d=false;try{d=window.parent!==window&&parent.document.documentElement.classList.contains("acs-dark")}catch(e){}document.documentElement.classList.toggle("dark",d)}
+ap();try{new MutationObserver(ap).observe(parent.document.documentElement,{attributes:true,attributeFilter:["class"]})}catch(e){}})();
+
+var BOOL=[["true","aktif"],["false","nonaktif"]];
+var GROUPS=[
+ {t:"Bot Telegram",d:"Bot membaca ulang pengaturan ini tiap putaran, tanpa restart.",f:[
+  ["bot.enabled","Bot aktif","bool"],
+  ["bot.telegram.token","Token bot (dari @BotFather)","secret"],
+  ["bot.telegram.allowedChatIds","Chat ID yang boleh memakai bot","text","pisahkan dengan koma/spasi; kosong = semua ditolak"],
+  ["bot.alert.chatIds","Chat ID penerima alert","text","kosong = sama dengan Chat ID di atas"],
+  ["bot.alert.everyMinutes","Cek alert tiap (menit)","num"],
+  ["bot.alert.faultThreshold","Alert bila jumlah fault ≥","num"],
+  ["bot.actions.enabled","Izinkan aksi (ubah SSID/password, reboot)","bool","tetap minta konfirmasi sebelum dijalankan"]]},
+ {t:"Asisten AI (hanya baca)",d:"Dipakai perintah /tanya. Ganti provider kapan saja tanpa restart.",f:[
+  ["bot.ai.enabled","AI aktif","bool"],
+  ["bot.ai.provider","Provider","sel",["anthropic","openrouter","openai"]],
+  ["bot.ai.apiKey","API key","secret"],
+  ["bot.ai.model","Model","text"],
+  ["bot.ai.baseUrl","Base URL (opsional)","text","untuk endpoint OpenAI-compatible lain"],
+  ["bot.ai.dailyLimit","Batas pertanyaan per hari","num"]]},
+ {t:"Bot WhatsApp",d:"Hanya berlaku bila bot WhatsApp dipasang (scripts/setup-wa-bot.sh).",f:[
+  ["wabot.enabled","Bot WA aktif","bool"],
+  ["wabot.allowedNumbers","Nomor yang boleh memakai bot","text","format 628xxxx, pisahkan dengan koma"],
+  ["wabot.actions.enabled","Izinkan aksi","bool"],
+  ["wabot.alert.numbers","Nomor penerima alert","text"],
+  ["wabot.alert.everyMinutes","Cek alert tiap (menit)","num"],
+  ["wabot.alert.faultThreshold","Alert bila jumlah fault ≥","num"]]}
+];
+var cur={};
+function $(i){return document.getElementById(i)}
+function say(t,c){var m=$("msg");m.textContent=t||"";m.className=c||""}
+function api(method,path,body){
+  return fetch(path,{method:method,credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.text().then(function(t){
+      if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
+      if(!r.ok)throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+      return t?JSON.parse(t):null})});
+}
+function plain(v){v=String(v==null?"":v).trim();if(v.length>=2&&((v[0]==="'"&&v[v.length-1]==="'")||(v[0]==='"'&&v[v.length-1]==='"')))v=v.slice(1,-1);return v}
+function el(tag,props,kids){var e=document.createElement(tag);Object.keys(props||{}).forEach(function(k){if(k==="text")e.textContent=props[k];else e.setAttribute(k,props[k])});(kids||[]).forEach(function(c){e.appendChild(c)});return e}
+function build(){
+  var box=$("form");box.textContent="";
+  GROUPS.forEach(function(g){
+    box.appendChild(el("h2",{text:g.t}));box.appendChild(el("p",{"class":"d",text:g.d}));
+    g.f.forEach(function(f){
+      var key=f[0],type=f[2],has=cur[key]!==undefined,inp;
+      if(type==="bool"||type==="sel"){
+        var opts=type==="bool"?BOOL:f[3].map(function(x){return [x,x]});
+        inp=el("select",{id:key},opts.map(function(o){var op=el("option",{value:o[0],text:o[1]});if(plain(cur[key])===o[0])op.selected=true;return op}));
+      }else if(type==="secret"){
+        inp=el("input",{id:key,type:"password",autocomplete:"new-password",placeholder:has&&plain(cur[key])&&!/^ISI_/.test(plain(cur[key]))?"•••••• (tersimpan — kosongkan untuk tidak mengubah)":"belum diisi"});
+      }else{
+        inp=el("input",{id:key,type:type==="num"?"number":"text",value:plain(cur[key])});
+      }
+      var lab=el("label",{"for":key,text:f[1]},[el("small",{text:type==="secret"?key:(f[3]&&typeof f[3]==="string"?f[3]:key)})]);
+      box.appendChild(el("div",{"class":"f"},[lab,inp]));
+    });
+  });
+}
+function load(){
+  return Promise.all(["bot.%","wabot.%"].map(function(p){return api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "'+p+'"'))})).then(function(r){
+    cur={};r[0].concat(r[1]).forEach(function(c){cur[c._id]=c.value});build();say("")}).catch(function(e){$("form").textContent="";say("Gagal memuat: "+e.message,"er")});
+}
+function save(){
+  var jobs=[],bad=null;
+  GROUPS.forEach(function(g){g.f.forEach(function(f){
+    var key=f[0],type=f[2],v=$(key).value.trim();
+    if(type==="secret"&&v==="")return;                       // kosong = jangan ubah
+    if(/['"\\]/.test(v)){bad=f[1]+": tidak boleh berisi tanda kutip atau backslash";return}
+    if(type==="num"){if(v===""||isNaN(Number(v))||Number(v)<0){bad=f[1]+": harus angka";return}}
+    var val=type==="num"?String(Number(v)):"'"+v+"'";
+    if(cur[key]!==undefined&&String(cur[key]).trim()===val)return;   // tidak berubah
+    if(cur[key]===undefined&&v===""&&type!=="bool")return;          // tidak ada & kosong: tidak perlu dibuat
+    jobs.push(api("PUT","/api/config/"+encodeURIComponent(key),{_id:key,value:val}).then(function(){cur[key]=val}));
+  })});
+  if(bad)return say(bad,"er");
+  if(!jobs.length)return say("Tidak ada perubahan");
+  say("Menyimpan…");
+  Promise.all(jobs).then(function(){say(jobs.length+" pengaturan tersimpan","ok");build()}).catch(function(e){say("Gagal menyimpan: "+e.message,"er")});
+}
+$("save").onclick=save;
+load();
+</script>
+</body>
+</html>

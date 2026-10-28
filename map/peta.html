@@ -7,7 +7,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
 :root{--bg:#fff;--fg:#1a1d21;--mut:#6b7280;--bd:#d9dde3;--pri:#2563eb;--bad:#dc2626;--ok:#16a34a;--warn:#d97706}
-@media (prefers-color-scheme:dark){:root{--bg:#161a20;--fg:#e6e8eb;--mut:#9aa3af;--bd:#2d333b;--pri:#60a5fa}}
+:root.dark{--bg:#161a20;--fg:#e6e8eb;--mut:#9aa3af;--bd:#2d333b;--pri:#60a5fa}
+.dark .osm-tiles{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9)}
 *{box-sizing:border-box}html,body{height:100%;margin:0}
 body{font:14px system-ui,sans-serif;background:var(--bg);color:var(--fg);display:flex}
 #side{width:340px;max-width:45vw;display:flex;flex-direction:column;border-right:1px solid var(--bd)}
@@ -42,13 +43,15 @@ button{cursor:pointer;width:auto}button.pri{background:var(--pri);border-color:v
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 "use strict";
+(function(){function ap(){var d=false;try{d=window.parent!==window&&parent.document.documentElement.classList.contains("acs-dark")}catch(e){}document.documentElement.classList.toggle("dark",d)}
+ap();try{new MutationObserver(ap).observe(parent.document.documentElement,{attributes:true,attributeFilter:["class"]})}catch(e){}})();
 var state={devices:[],odps:[],tab:location.hash==="#odp"?"odp":"ont",sel:null};
 var $=function(i){return document.getElementById(i)};
 function el(tag,props,kids){var e=document.createElement(tag);Object.keys(props||{}).forEach(function(k){if(k==="text")e.textContent=props[k];else if(k.slice(0,2)==="on")e[k]=props[k];else e.setAttribute(k,props[k])});(kids||[]).forEach(function(c){e.appendChild(c)});return e}
 function say(t){$("msg").textContent=t||""}
 
 var map=L.map("map").setView([-2.5,118],5);
-var osm=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"});
+var osm=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap",className:"osm-tiles"});
 var sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri"});
 osm.addTo(map);L.control.layers({"Peta":osm,"Satelit":sat}).addTo(map);
 var layer=L.layerGroup().addTo(map);
