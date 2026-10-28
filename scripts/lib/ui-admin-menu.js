@@ -114,9 +114,13 @@ function themeMain() {
     apply();
   }
   function panel() { return d.getElementById("acs-theme-panel"); }
+  var openedAt = 0;
   window.acsToggleTheme = function () {
     var p = panel();
-    if (p) p.style.display = p.style.display === "block" ? "none" : "block";
+    if (!p) return;
+    var show = p.style.display !== "block";
+    p.style.display = show ? "block" : "none";
+    if (show) openedAt = Date.now(); // klik yang membuka (mis. dari item sidebar) jangan langsung dihitung "klik di luar"
   };
   function mk() {
     if (d.getElementById("acs-theme-btn") && panel()) return;
@@ -141,7 +145,7 @@ function themeMain() {
   apply(); mk(); setInterval(mk, 1500); // tombol di <html>, bukan <body>: Mithril (m.route(document.body)) mengosongkan body
   d.addEventListener("click", function (e) {
     var p = panel();
-    if (p && p.style.display === "block" && !p.contains(e.target) && e.target.id !== "acs-theme-btn") p.style.display = "none";
+    if (p && p.style.display === "block" && Date.now() - openedAt > 300 && !p.contains(e.target) && e.target.id !== "acs-theme-btn") p.style.display = "none";
   });
 }
 const THEME = ";(" + themeMain.toString() + ")();\n";
