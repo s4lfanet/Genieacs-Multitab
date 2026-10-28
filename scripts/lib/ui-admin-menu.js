@@ -54,8 +54,9 @@ const THEME = ';(function(){var K="acs_theme",d=document,h=d.documentElement;fun
   'var s=d.createElement("style");s.textContent="html.acs-dark{filter:invert(1) hue-rotate(180deg);background:#fff}html.acs-dark iframe{filter:invert(1) hue-rotate(180deg)}' +
   '#acs-theme-btn{position:fixed;right:12px;bottom:12px;z-index:99999;font:12px sans-serif;padding:6px 10px;border:1px solid #888;border-radius:14px;background:#fff;color:#222;cursor:pointer;opacity:.85}#acs-theme-btn:hover{opacity:1}";' +
   '(d.head||h).appendChild(s);function mk(){if(d.getElementById("acs-theme-btn"))return;var b=d.createElement("button");b.id="acs-theme-btn";b.type="button";' +
-  'b.onclick=function(){try{localStorage.setItem(K,g()?"light":"dark")}catch(e){}ap()};d.body.appendChild(b);ap()}' +
-  'ap();if(d.body)mk();else d.addEventListener("DOMContentLoaded",mk)})();' + "\n";
+  'b.onclick=function(){try{localStorage.setItem(K,g()?"light":"dark")}catch(e){}ap()};h.appendChild(b);ap()}' +
+  // tombol di <html>, bukan <body>: Mithril (m.route(document.body)) mengosongkan body saat UI start
+  'ap();mk();setInterval(mk,1500)})();' + "\n";
 for (const [a, b] of patches) {
   const n = s.split(a).length - 1;
   if (n !== 1) { console.error("titik sisip ditemukan " + n + "x (harus 1): " + a.slice(0, 70) + "... -- versi GenieACS tidak didukung"); process.exit(3); }
