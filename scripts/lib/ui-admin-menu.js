@@ -29,6 +29,8 @@ function menu(key, label, title, src) {
   routes.push('"/admin/' + key + '":nt("' + key + '",{component:()=>({view:()=>(document.title="' + title + ' - GenieACS",' + frame(src) + ')})}),');
 }
 if (port) menu("bot", "🤖 Bot", "Bot", hostPort(port));
+// item sidebar "Tema" (bukan halaman): hanya mengganti tema; tombol melayang tetap ada untuk semua halaman
+if (withTheme) items.push('window.authorizer.hasAccess("config",2)&&n.push((0,je.default)("li",(0,je.default)("a",{href:"#",onclick:function(e){e.preventDefault();window.acsToggleTheme&&window.acsToggleTheme()}},"\\u{1F319}/\\u2600 Tema"))),');
 if (withWaPage) menu("wa", "📱 Bot WA", "Bot WA", '"/wa.html"');
 if (withBotPage) menu("botcfg", "\u{1F916} Bot", "Bot", '"/bot.html"');
 if (withMap) {
@@ -54,10 +56,11 @@ const patches = [
 // peta/bot) dikembalikan normal dan mengikuti class "acs-dark" di <html> induk dengan CSS sendiri.
 const THEME = ';(function(){var K="acs_theme",d=document,h=d.documentElement;function g(){try{return localStorage.getItem(K)==="dark"}catch(e){return false}}' +
   'function ap(){h.classList.toggle("acs-dark",g());var b=d.getElementById("acs-theme-btn");if(b)b.textContent=g()?"\u2600 Terang":"\u{1F319} Gelap"}' +
-  'var s=d.createElement("style");s.textContent="html.acs-dark{filter:invert(1) hue-rotate(180deg);background:#fff}html.acs-dark iframe{filter:invert(1) hue-rotate(180deg)}' +
-  '#acs-theme-btn{position:fixed;right:12px;bottom:12px;z-index:99999;font:12px sans-serif;padding:6px 10px;border:1px solid #888;border-radius:14px;background:#fff;color:#222;cursor:pointer;opacity:.85}#acs-theme-btn:hover{opacity:1}";' +
+  'var s=d.createElement("style");s.textContent="html.acs-dark{filter:invert(1) hue-rotate(180deg);background:#e2e2e2}html.acs-dark iframe{filter:invert(1) hue-rotate(180deg)}' +
+  '#acs-theme-btn{position:fixed;right:16px;bottom:16px;z-index:99999;font:600 14px sans-serif;padding:10px 16px;border:2px solid #2563eb;border-radius:22px;background:#fff;color:#1e3a8a;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35)}#acs-theme-btn:hover{background:#dbeafe}";' +
   '(d.head||h).appendChild(s);function mk(){if(d.getElementById("acs-theme-btn"))return;var b=d.createElement("button");b.id="acs-theme-btn";b.type="button";' +
-  'b.onclick=function(){try{localStorage.setItem(K,g()?"light":"dark")}catch(e){}ap()};h.appendChild(b);ap()}' +
+  'window.acsToggleTheme=function(){try{localStorage.setItem(K,g()?"light":"dark")}catch(e){}ap()};' +
+  'b.onclick=window.acsToggleTheme;h.appendChild(b);ap()}' +
   // tombol di <html>, bukan <body>: Mithril (m.route(document.body)) mengosongkan body saat UI start
   'ap();mk();setInterval(mk,1500)})();' + "\n";
 for (const [a, b] of patches) {
