@@ -4,17 +4,23 @@
 # Yang dipasang secara default (aman, tidak mengubah setelan ONT):
 #   - Tampilan UI multi-tab: semua key Config ui.* (DIGANTI seluruhnya) + branding.* (jika belum ada)
 #   - Virtual Parameters (29 VP)
-#   - Provisions (bootstrap, default, inform2, useradmin2, remoteweb, nokia_pppoe)
-#     -> provision hanya jalan bila dipanggil preset. Preset "bootstrap" dan "default"
-#        dipasang otomatis bersama provisions (aman: discovery + trigger VirtualParameters,
-#        tidak mengubah setelan ONT). Provision lain (inform2/useradmin2/remoteweb) baru aktif
-#        lewat flag --preset-* di bawah.
+#   - Provisions "bootstrap" dan "default" + preset bootstrap/default (discovery + trigger
+#     VirtualParameters, tidak mengubah setelan ONT).
+#   - Provision yang MENGUBAH ONT (inform2, useradmin2, remoteweb, nokia_pppoe) TIDAK dipasang
+#     kecuali diminta lewat --preset-* / --provision=NAME di bawah.
+#
+# Keamanan untuk server yang SUDAH BERJALAN: VP, provision, dan preset yang sudah ada di server dan
+# isinya berbeda TIDAK ditimpa (dilaporkan sebagai "dilewati"). Pakai --overwrite hanya kalau memang
+# mau menggantinya. (Dulu semua provision di repo ditimpa; di server yang sudah punya preset "inform",
+# template inform2 berisi GANTI_... langsung dijalankan ke semua ONT dan memutus komunikasi/connection request.)
 #
 # Opsional (MENGUBAH setelan ONT, baca docs/PROVISIONS-VP.md dulu):
 #   --preset-inform     preset inform -> inform2 (URL ACS, user/pass ACS, conn request, interval)
 #   --preset-useradmin  preset useradmin -> useradmin2 (paksa user/password web ONT)
 #   --preset-remoteweb  preset remoteweb -> remoteweb (buka web ONT dari WAN, firewall ONT dilonggarkan)
+#   --provision=NAME    pasang provision yang mengubah ONT tanpa preset (mis. nokia_pppoe)
 #   --bot-config        tambah key bot.* contoh ke Config (untuk bot Telegram)
+#   --overwrite         timpa VP/provision/preset yang sudah ada dan berbeda (default: dilewati)
 #
 # Lain-lain:
 #   --no-ui --no-vp --no-provisions   lewati bagian tertentu
@@ -27,7 +33,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DB="${GENIEACS_DB:-genieacs}"
 UI_URL="${UI_URL:-http://127.0.0.1:3000/}"
-WITH_UI=1; WITH_VP=1; WITH_PROV=1; WITH_BOT=0; DRY=0; FORCE=0; PRESETS=""
+WITH_UI=1; WITH_VP=1; WITH_PROV=1; WITH_BOT=0; DRY=0; FORCE=0; OVERWRITE=0; PRESETS=""; PROVS=""
 
 for a in "$@"; do
   case "$a" in
@@ -37,6 +43,8 @@ for a in "$@"; do
     --preset-inform) PRESETS="$PRESETS inform" ;;
     --preset-useradmin) PRESETS="$PRESETS useradmin" ;;
     --preset-remoteweb) PRESETS="$PRESETS remoteweb" ;;
+    --provision=*) PROVS="$PROVS ${a#--provision=}" ;;
+    --overwrite) OVERWRITE=1 ;;
     --bot-config) WITH_BOT=1 ;;
     --dry-run) DRY=1 ;;
     --force) FORCE=1 ;;
@@ -52,19 +60,24 @@ command -v mongodump >/dev/null && command -v mongorestore >/dev/null || { echo 
 
 ui_code() { curl -s -o /dev/null -m 10 -w '%{http_code}' "$UI_URL" || true; }
 
-# --- cek placeholder untuk preset yang mengubah ONT ---
+# --- cek placeholder untuk semua provision yang mengubah ONT dan akan dipasang ---
 for p in $PRESETS; do
   case "$p" in
-    inform) f=provisions/inform2.js ;;
-    useradmin) f=provisions/useradmin2.js ;;
-    remoteweb) f=provisions/remoteweb.js ;;
+    inform) PROVS="$PROVS inform2" ;;
+    useradmin) PROVS="$PROVS useradmin2" ;;
+    remoteweb) PROVS="$PROVS remoteweb" ;;
   esac
+done
+for n in $PROVS; do
+  f="provisions/$n.js"
+  [ -f "$ROOT/$f" ] || { echo "ERROR: provision tidak ada: $f"; exit 2; }
   if grep -q "GANTI_" "$ROOT/$f"; then
-    echo "ERROR: $f masih berisi nilai GANTI_... Edit dulu sesuai server Anda sebelum --preset-$p:"
+    echo "ERROR: $f masih berisi nilai GANTI_... Edit dulu sesuai server Anda sebelum memasangnya:"
     grep -n "GANTI_" "$ROOT/$f"
     exit 1
   fi
 done
+PROVS="$(echo $PROVS | tr ' ' '\n' | sort -u | paste -sd, -)"
 
 echo "== Genieacs-Multitab installer"
 echo "   DB=$DB  UI=$UI_URL  shell=$MONGO"
@@ -80,7 +93,7 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 node "$ROOT/scripts/lib/bundle.js" "$ROOT" "$TMP/run.js" \
-  "ui=$WITH_UI" "vp=$WITH_VP" "prov=$WITH_PROV" "bot=$WITH_BOT" "presets=$(echo $PRESETS | tr ' ' ',')" "dry=$DRY"
+  "ui=$WITH_UI" "vp=$WITH_VP" "prov=$WITH_PROV" "bot=$WITH_BOT" "presets=$(echo $PRESETS | tr ' ' ',')" "provs=$PROVS" "overwrite=$OVERWRITE" "dry=$DRY"
 
 if [ $DRY = 1 ]; then
   "$MONGO" "$DB" --quiet "$TMP/run.js"

@@ -53,7 +53,7 @@ bash scripts/install.sh
 Urutan kerja installer:
 1. Memastikan UI menjawab HTTP 200 sebelum mulai.
 2. **Backup** koleksi `config`, `virtualParameters`, `provisions`, `presets` ke `backups/<waktu>/`.
-3. Memasang 29 Virtual Parameter dan 6 provision (yang namanya sama ditimpa).
+3. Memasang 29 Virtual Parameter, provision `bootstrap` dan `default`, serta preset `bootstrap`/`default`. **Yang sudah ada di server dan isinya berbeda tidak ditimpa** (dilaporkan sebagai "dilewati"); pakai `--overwrite` kalau memang mau menggantinya. Provision yang mengubah ONT (`inform2`, `useradmin2`, `remoteweb`, `nokia_pppoe`) **tidak ikut terpasang** kecuali diminta dengan flag `--preset-*` / `--provision=`.
 4. **Mengganti semua key `ui.*`** di Config dengan tampilan multi-tab. Key `branding.*` hanya ditambahkan kalau belum ada.
 5. Membersihkan cache GenieACS.
 6. Mengecek UI 6 kali. Kalau UI tidak menjawab 200, installer **rollback otomatis** dari backup tadi.
@@ -72,6 +72,8 @@ VP diisi oleh provision `default`, yang di-refresh tiap jam atau tiap ONT inform
 | `--dry-run` | hanya tampilkan rencana |
 | `--no-ui` / `--no-vp` / `--no-provisions` | lewati bagian tertentu |
 | `--bot-config` | tambah key contoh `bot.*` ke Config |
+| `--provision=NAME` | pasang provision yang mengubah ONT tanpa presetnya (mis. `--provision=nokia_pppoe`); nilai `GANTI_` ditolak |
+| `--overwrite` | timpa VP/provision/preset yang sudah ada **dan berbeda** (default: dilewati). Backup tetap dibuat |
 | `--preset-inform` | preset `inform` → provision `inform2` (**mengubah ONT**: URL ACS, user/pass ACS, connection request, interval inform) |
 | `--preset-useradmin` | preset `useradmin` → `useradmin2` (**mengubah ONT**: user/password web ONT dipaksa setiap inform) |
 | `--preset-remoteweb` | preset `remoteweb` → `remoteweb` (**mengubah ONT**: buka web dari WAN, firewall ONT dilonggarkan) |
@@ -84,7 +86,9 @@ VP diisi oleh provision `default`, yang di-refresh tiap jam atau tiap ONT inform
 2. Pasang ulang dengan flag-nya, misalnya `bash scripts/install.sh --preset-useradmin`.
 3. Uji dulu di 1–2 ONT. Caranya: ubah *precondition* preset di Admin → Presets menjadi `DeviceID.ID = "..."`. Pastikan **Last Inform** masih bertambah setelah 2 siklus inform, baru buka untuk semua ONT.
 
-Installer **menolak** memasang preset selama masih ada `GANTI_` di provision terkait.
+Installer **menolak** memasang provision yang mengubah ONT selama masih ada `GANTI_` di dalamnya.
+
+> **Server yang sudah berjalan:** kalau server Anda sudah punya `inform2`/`useradmin2`/`remoteweb` dengan nilai sendiri, installer tidak menyentuhnya. Jangan pakai `--overwrite` bersama `--preset-*` kecuali file di repo sudah Anda isi dengan nilai yang benar, karena provision di server akan diganti dan langsung dijalankan ke semua ONT.
 
 ⚠️ URL ACS yang salah di `inform2` membuat ONT berhenti inform, dan setelah itu tidak bisa dikembalikan dari GenieACS. Perbaikannya harus lewat web lokal ONT atau OLT.
 

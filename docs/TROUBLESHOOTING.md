@@ -33,6 +33,17 @@ GenieACS menggabungkan SetParameterValues dari beberapa provision. Kalau satu ni
 ## Setelah mengubah provision/VP lewat NBI, hasilnya belum berubah
 Proses cwmp memakai cache lokal selama beberapa detik. Tunggu sebentar, lalu uji lagi.
 
+## Setelah instal di server yang sudah berjalan: connection request 403, ONT berhenti inform
+Gejala: halaman device menampilkan "Connection request error: Unexpected status code 403", Summon gagal, atau ONT hilang dari daftar online.
+
+Penyebab (installer versi lama): semua provision di repo ditimpa ke server, termasuk `inform2` / `useradmin2` yang di repo berisi nilai contoh `GANTI_...`. Kalau server sudah punya preset `inform` (atau `useradmin`) yang memakai provision itu, template tersebut langsung dijalankan ke SEMUA ONT: URL ACS, user/password ACS, dan connection request user/password ONT diganti nilai palsu, dan password web ONT juga.
+
+Pemulihan, secepat mungkin (setiap inform ONT yang menerima nilai palsu memperburuk keadaan):
+1. Restore backup yang dibuat installer: `bash scripts/restore.sh backups/<waktu>` (provision/preset/VP/config kembali seperti sebelum instal). Folder backup ada di `backups/`.
+2. Cek di Admin → Provisions bahwa `inform2`/`useradmin2` berisi nilai yang benar, dan Admin → Presets bahwa presetnya sesuai.
+3. ONT yang sudah sempat inform dengan URL ACS palsu (`GANTI_IP_ACS`) tidak bisa dijangkau lagi dari GenieACS; perbaikannya lewat web lokal ONT atau OLT. ONT yang hanya kena kredensial connection request biasanya pulih setelah inform berikutnya dengan nilai yang benar.
+4. Pakai installer versi terbaru: tidak lagi menimpa provision/preset yang sudah ada dan tidak memasang provision pengubah ONT tanpa diminta. Jalankan `bash scripts/install.sh --dry-run` dulu dan baca bagian "DILEWATI".
+
 ## Summon / connection request gagal
 - Connection request user/pass di ONT berbeda dengan data di GenieACS. Biasanya pulih setelah inform berikutnya.
 - IP TR-069 ONT tidak bisa dijangkau dari server (NAT/VLAN). Cek dengan `ping` dari server.

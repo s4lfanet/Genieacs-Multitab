@@ -92,7 +92,8 @@ tools/                           alat bantu Huawei (laporan & perbaikan ACL web 
 
 ## ⚠️ Keamanan
 
-- Installer **default tidak mengubah setelan ONT**. Provision yang menulis ke ONT (`inform2`, `useradmin2`, `remoteweb`) hanya aktif kalau Anda memasang presetnya dengan flag `--preset-*`. Itu pun ditolak selama nilai `GANTI_...` belum diedit.
+- Installer **default tidak mengubah setelan ONT**. Provision yang menulis ke ONT (`inform2`, `useradmin2`, `remoteweb`, `nokia_pppoe`) tidak ikut terpasang kecuali diminta lewat `--preset-*` / `--provision=`, dan ditolak selama nilai `GANTI_...` belum diedit.
+- Di server yang **sudah berjalan**, VP/provision/preset yang sudah ada dan berbeda **tidak ditimpa** (dilaporkan "dilewati"); `--overwrite` hanya bila memang mau menggantinya. Selalu mulai dengan `bash scripts/install.sh --dry-run`.
 - `remoteweb` membuka web/SSH/Telnet ONT dari sisi WAN dan melonggarkan firewall ONT. Pakai hanya kalau WAN ONT berada di jaringan manajemen/privat.
 - Jangan commit token bot, API key, atau password. Simpan di Admin → Config server Anda, bukan di repo.
 
