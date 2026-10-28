@@ -16361,7 +16361,7 @@
  },
  {
   "_id": "ui.index.15.parameter",
-  "value": "InternetGatewayDevice.DeviceInfo.Manufacturer"
+  "value": "DeviceID.Manufacturer"
  },
  {
   "_id": "ui.index.16.label",
