@@ -100,7 +100,9 @@ async function devicesView(cfg) {
   const loc = readData();
   const now = Date.now();
   const list = (await nbiDevices(cfg)).map(d => {
-    const rx = vp(d, "redaman") != null ? vp(d, "redaman") : vp(d, "RXPower");
+    // RXPower berisi teks seperti "-14 dBm (Bagus)"; redaman (angka) di banyak server sudah tidak terisi
+    const rxm = String(vp(d, "RXPower") != null ? vp(d, "RXPower") : vp(d, "redaman") != null ? vp(d, "redaman") : "").match(/-?\d+(\.\d+)?/);
+    const rx = rxm ? Number(rxm[0]) : null;
     const li = d._lastInform ? Date.parse(d._lastInform) : 0;
     const l = loc.devices[d._id] || null;
     return {
@@ -109,7 +111,7 @@ async function devicesView(cfg) {
       model: d._deviceId && d._deviceId._ProductClass || "",
       pppoe: vp(d, "pppoeUsername") || "",
       ip: vp(d, "pppoeIP") || "",
-      rx: rx == null || rx === "" ? null : Number(rx),
+      rx: rx,
       online: li > 0 && now - li < 10 * 60 * 1000,
       loc: l
     };
