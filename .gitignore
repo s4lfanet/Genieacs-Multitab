@@ -11,3 +11,7 @@ bot/node_modules/
 bot/package-lock.json
 bot/wa_auth/
 bot/wa_qr.txt
+
+# peta (kredensial & data lokasi pelanggan)
+map/config.json
+map/data/
