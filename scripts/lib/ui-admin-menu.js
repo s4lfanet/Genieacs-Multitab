@@ -20,7 +20,7 @@ if (!port && !withMap && !withBotPage && !withTheme && !withWaPage) { console.er
 const pages = [];     // key halaman
 const items = [];     // <li> sidebar
 const routes = [];    // rute
-const frame = (src) => '(0,jt.default)("iframe",{src:' + src + ',' +
+const frame = (src) => '(0,jt.default)("iframe",{src:' + src + ',allow:"geolocation",' +
   'style:"width:100%;height:calc(100vh - 170px);min-height:480px;border:0;background:#fff"})';
 const hostPort = (p) => 'location.protocol+"//"+location.hostname+":' + p + '/"';
 function menu(key, label, title, src) {

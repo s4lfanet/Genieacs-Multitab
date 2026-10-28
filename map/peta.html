@@ -33,6 +33,7 @@ button{cursor:pointer;width:auto}button.pri{background:var(--pri);border-color:v
     <h1>Peta Pelanggan &amp; ODP</h1>
     <input id="q" type="search" placeholder="Cari PPPoE / SN / nama">
     <div class="row tabs"><button id="tOnt" class="on">ONT</button><button id="tOdp">ODP</button></div>
+    <div class="row"><button id="gps" style="flex:1">📍 Lokasi saya (GPS)</button></div>
   </header>
   <div id="msg"></div>
   <div id="list"></div>
@@ -55,6 +56,40 @@ var osm=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19
 var sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri"});
 osm.addTo(map);L.control.layers({"Peta":osm,"Satelit":sat}).addTo(map);
 var layer=L.layerGroup().addTo(map);
+var meLayer=L.layerGroup().addTo(map);
+
+// ---- GPS (Geolocation API browser) ----
+// Browser hanya mengizinkan GPS di HTTPS atau localhost; di http://IP:port diblokir. Cadangan: tempel koordinat.
+function gps(cb){
+  if(!navigator.geolocation)return say("Browser ini tidak mendukung GPS.");
+  if(window.isSecureContext===false)return say("GPS diblokir browser di alamat http:// (butuh HTTPS atau localhost). Pakai 'Tempel koordinat' di bawah.");
+  say("Mencari lokasi GPS…");
+  navigator.geolocation.getCurrentPosition(function(p){
+    var r={lat:+p.coords.latitude.toFixed(6),lng:+p.coords.longitude.toFixed(6),acc:Math.round(p.coords.accuracy)};
+    say("GPS: "+r.lat+", "+r.lng+" (akurasi ±"+r.acc+" m)");cb(r);
+  },function(e){
+    say("GPS gagal: "+({1:"izin lokasi ditolak (cek pengaturan situs di browser)",2:"posisi tidak tersedia",3:"waktu habis"}[e.code]||e.message));
+  },{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+}
+function showMe(p){
+  meLayer.clearLayers();
+  L.circle([p.lat,p.lng],{radius:p.acc||10,color:"#2563eb",weight:1,fillOpacity:.1}).addTo(meLayer);
+  L.circleMarker([p.lat,p.lng],{radius:7,color:"#fff",weight:2,fillColor:"#2563eb",fillOpacity:1}).addTo(meLayer).bindTooltip("Lokasi Anda");
+  map.setView([p.lat,p.lng],Math.max(map.getZoom(),18));
+}
+// "-6.2001, 106.8166" (format salin dari Google Maps), juga "lat lng" atau "(lat;lng)"
+function parseCoord(t){
+  var m=String(t).match(/(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/);
+  if(!m)return null;var la=+m[1],ln=+m[2];
+  return la>=-90&&la<=90&&ln>=-180&&ln<=180?{lat:la,lng:ln}:null;
+}
+function posRow(cb){
+  var inp=el("input",{type:"text",placeholder:"Tempel koordinat: -6.2001, 106.8166",style:"flex:1;min-width:0"});
+  return el("div",{"class":"row"},[
+    el("button",{text:"📍 Pakai GPS",onclick:function(){gps(function(p){showMe(p);cb(p)})}}),
+    inp,
+    el("button",{text:"Set",onclick:function(){var c=parseCoord(inp.value);if(!c)return say("Format koordinat tidak dikenali");map.setView([c.lat,c.lng],Math.max(map.getZoom(),18));cb(c)}})]);
+}
 
 // ---- data: API GenieACS sendiri (sama-asal, memakai cookie login GenieACS) ----
 // ONT dibaca dari /api/devices (hanya GET). Lokasi & ODP disimpan di satu key Config "peta.data"
@@ -142,6 +177,7 @@ function select(kind,id){
       el("button",{"class":"pri",text:l.lat!=null?"Pindah lokasi":"Tandai di peta",onclick:function(){pick(function(ll){saveOnt(d,ll.lat,ll.lng)})}}),
       el("button",{text:"Simpan",onclick:function(){if(l.lat==null)return say("Tandai lokasi dulu");saveOnt(d,l.lat,l.lng)}}),
       el("button",{"class":"bad",text:"Hapus",onclick:function(){if(confirm("Hapus lokasi ONT ini?"))mutate(function(st){delete st.devices[d.id]}).then(load).then(close).catch(function(e){say(e.message)})}})]));
+    f.appendChild(posRow(function(ll){saveOnt(d,ll.lat,ll.lng)}));
     if(l.lat!=null)map.setView([l.lat,l.lng],Math.max(map.getZoom(),17));
   }else{
     var o=state.odps.filter(function(x){return x.id===id})[0]||{};
@@ -158,6 +194,7 @@ function select(kind,id){
       el("button",{"class":"pri",text:o.lat!=null?"Pindah lokasi":"Tandai di peta",onclick:function(){pick(putOdp)}}),
       el("button",{text:"Simpan",onclick:function(){if(o.lat==null)return say("Tandai lokasi dulu");putOdp({lat:o.lat,lng:o.lng})}}),
       el("button",{"class":"bad",text:"Hapus",onclick:function(){if(id&&confirm("Hapus ODP ini?"))mutate(function(st){delete st.odps[id];Object.keys(st.devices).forEach(function(k){if(st.devices[k].odp===id)st.devices[k].odp=""})}).then(load).then(close).catch(function(e){say(e.message)})}})]));
+    f.appendChild(posRow(putOdp));
     if(o.lat!=null)map.setView([o.lat,o.lng],Math.max(map.getZoom(),17));
   }
   list();
@@ -179,6 +216,7 @@ function pick(cb){
   map.once("click",on);document.addEventListener("keydown",esc);
 }
 $("q").oninput=list;
+$("gps").onclick=function(){gps(showMe)};
 $("tOnt").onclick=function(){state.tab="ont";$("tOnt").className="on";$("tOdp").className="";list()};
 if(state.tab==="odp"){$("tOnt").className="";$("tOdp").className="on"}
 $("tOdp").onclick=function(){state.tab="odp";$("tOdp").className="on";$("tOnt").className="";list()};
