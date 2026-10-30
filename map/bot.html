@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="acs-page" content="bot">
 <title>Pengaturan Bot</title>
 <style>
 :root{--bg:#fff;--surface:#fff;--fg:#002f2f;--mut:#667078;--bd:#ebe0bf;--pri:#046380;--soft:#f2ebd5;--on:#fff;--ok:#16803c;--bad:#c62828;--warn:#b45309}
@@ -36,6 +37,8 @@ input::placeholder{color:var(--mut)}
 #msg{flex:1;font-size:12.5px;color:var(--mut)}#msg.ok{color:var(--ok)}#msg.er{color:var(--bad)}#msg.dirty{color:var(--warn)}
 .btn{font:inherit;font-weight:600;border:1px solid var(--bd);background:var(--surface);color:var(--fg);border-radius:9px;padding:8px 18px;cursor:pointer}
 .btn:hover:not(:disabled){border-color:var(--pri)}.btn.pri{background:var(--pri);border-color:var(--pri);color:var(--on)}.btn:disabled{opacity:.45;cursor:not-allowed}
+.err{border:1px solid var(--bad);background:color-mix(in srgb,var(--bad) 9%,transparent);border-radius:14px;padding:16px 18px}
+.err b{color:var(--bad);font-size:14px}.err p{margin:6px 0 0}.err ul{margin:8px 0 12px 18px;padding:0;color:var(--mut)}.err code{font-family:ui-monospace,Consolas,monospace;background:var(--soft);border-radius:6px;padding:1px 6px}
 @media (max-width:640px){.f{grid-template-columns:1fr;gap:8px}body{padding:14px 14px 84px}}
 </style>
 </head>
@@ -101,6 +104,18 @@ function plain(v){v=String(v==null?"":v).trim();if(v.length>=2&&((v[0]==="'"&&v[
 function el(tag,props,kids){var e=document.createElement(tag);Object.keys(props||{}).forEach(function(k){if(k==="text")e.textContent=props[k];else e.setAttribute(k,props[k])});(kids||[]).forEach(function(c){e.appendChild(c)});return e}
 function isSet(k){var v=plain(cur[k]);return !!v&&!/^ISI_/.test(v)}
 function on(k,d){var v=plain(cur[k]);return v===""?d:v.toLowerCase()==="true"}
+// error tampil di TENGAH halaman (bukan hanya di bar bawah), supaya tidak terlihat seperti halaman kosong
+function showError(msg){
+  var box=$("form");box.textContent="";
+  var c=el("div",{"class":"err"},[el("b",{text:"Pengaturan bot tidak bisa dimuat"}),el("p",{text:String(msg)}),
+    el("ul",{},[el("li",{text:"Login ke GenieACS sebagai user dengan izin Config (baca & tulis)."}),
+      el("li",{text:"Buka halaman ini dari alamat yang sama dengan GenieACS (host:port yang sama)."}),
+      el("li",{text:"Di server, jalankan audit: bash scripts/diagnose.sh"})])]);
+  var b=el("button",{"class":"btn pri",text:"Coba lagi"});b.onclick=function(){box.textContent="Memuat…";load()};c.appendChild(b);box.appendChild(c);
+  say("");$("save").disabled=true;$("cancel").disabled=true;
+}
+window.addEventListener("error",function(e){showError(e.message||"kesalahan skrip")});
+window.addEventListener("unhandledrejection",function(e){showError((e.reason&&e.reason.message)||e.reason)});
 function setDirty(v){dirty=v;$("save").disabled=!v;$("cancel").disabled=!v;if(v)say("Ada perubahan yang belum disimpan","dirty");else if($("msg").className==="dirty")say("")}
 
 function status(){
@@ -148,7 +163,7 @@ function build(){
 }
 function load(){
   return Promise.all(["bot.%","wabot.%"].map(function(p){return api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "'+p+'"'))})).then(function(r){
-    cur={};r[0].concat(r[1]).forEach(function(c){cur[c._id]=c.value});build();say("")}).catch(function(e){$("form").textContent="";say("Gagal memuat: "+e.message,"er")});
+    cur={};r[0].concat(r[1]).forEach(function(c){cur[c._id]=c.value});build();say("")}).catch(function(e){showError(e.message)});
 }
 function save(){
   var jobs=[],bad=null;

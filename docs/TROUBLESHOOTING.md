@@ -44,8 +44,27 @@ Pemulihan, secepat mungkin (setiap inform ONT yang menerima nilai palsu memperbu
 3. ONT yang sudah sempat inform dengan URL ACS palsu (`GANTI_IP_ACS`) tidak bisa dijangkau lagi dari GenieACS; perbaikannya lewat web lokal ONT atau OLT. ONT yang hanya kena kredensial connection request biasanya pulih setelah inform berikutnya dengan nilai yang benar.
 4. Pakai installer versi terbaru: tidak lagi menimpa provision/preset yang sudah ada dan tidak memasang provision pengubah ONT tanpa diminta. Jalankan `bash scripts/install.sh --dry-run` dulu dan baca bagian "DILEWATI".
 
+## "Connection request error: Incorrect connection request credentials" (Summon/refresh gagal)
+Biasanya muncul di server **baru** (belum pernah ada provision yang menyetel kredensial connection request). Ini bukan kerusakan multitab; GenieACS polos pun begitu.
+
+**Penyebab:** ONT hampir tidak pernah membocorkan password connection request saat dibaca (selalu kosong), jadi ACS hanya tahu password itu kalau ACS sendiri yang menyetelnya ke ONT. Di server yang sehat provision `inform2` yang menyetelnya (cek di database: semua ONT punya `ConnectionRequestPassword`). Di server baru, tidak ada yang menyetelnya sehingga Summon ditolak ONT.
+
+**Cek cepat (baca-saja):** `bash scripts/diagnose.sh`, lihat bagian "3. Connection request".
+
+**Perbaikan aman:** pasang preset `connreq`, yang HANYA menyetel user/password connection request (rumusnya sama dengan `inform2`, jadi di server yang sudah memakai `inform2` tidak mengubah nilai apa pun) dan tidak menyentuh URL ACS, kredensial ACS, atau interval inform:
+```bash
+bash scripts/install.sh --preset-connreq
+```
+Uji dulu di 1–2 ONT: di Admin → Presets ubah *precondition* preset `connreq` menjadi `DeviceID.ID = "..."`, tunggu satu siklus inform, klik Summon, lalu kosongkan precondition agar berlaku untuk semua. Summon di ONT lain baru berfungsi setelah ONT itu inform sekali dengan preset aktif.
+
+## Halaman di sidebar (Pengaturan Bot, Peta, Bot WA) kosong / tidak menampilkan apa-apa
+Jalankan `bash scripts/diagnose.sh` di server. Penyebab yang dicek:
+- **File halaman belum ada di folder `public` yang dipakai UI** (bagian "2. File tampilan"), atau salah folder bila ada lebih dari satu instalasi GenieACS. Perbaikan: `bash scripts/ui-admin-menu.sh --all`. Halaman yang hilang atau versi lama kini menampilkan pesan merah ini, bukan layar kosong.
+- **API GenieACS menolak** (403/500): login sebagai admin dengan izin Config. Pesan error kini tampil besar di tengah halaman beserta tombol "Coba lagi".
+- **Peta:** browser perlu akses internet ke `unpkg.com` (Leaflet) dan tile OpenStreetMap/Esri. Tanpa itu halaman Peta menampilkan "Pustaka peta tidak bisa dimuat".
+
 ## Summon / connection request gagal
-- Connection request user/pass di ONT berbeda dengan data di GenieACS. Biasanya pulih setelah inform berikutnya.
+- Connection request user/pass di ONT berbeda dengan data di GenieACS. Biasanya pulih setelah inform berikutnya (lihat bagian "Incorrect connection request credentials" di atas bila terus berulang).
 - IP TR-069 ONT tidak bisa dijangkau dari server (NAT/VLAN). Cek dengan `ping` dari server.
 
 ## Branding tidak berubah

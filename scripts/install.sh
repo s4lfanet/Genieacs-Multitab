@@ -15,6 +15,8 @@
 # template inform2 berisi GANTI_... langsung dijalankan ke semua ONT dan memutus komunikasi/connection request.)
 #
 # Opsional (MENGUBAH setelan ONT, baca docs/PROVISIONS-VP.md dulu):
+#   --preset-connreq    preset connreq -> connreq (HANYA user/pass connection request ONT, supaya Summon/refresh
+#                       berfungsi; tidak mengubah URL/kredensial ACS. Aman, tanpa GANTI_; lihat docs/TROUBLESHOOTING.md)
 #   --preset-inform     preset inform -> inform2 (URL ACS, user/pass ACS, conn request, interval)
 #   --preset-useradmin  preset useradmin -> useradmin2 (paksa user/password web ONT)
 #   --preset-remoteweb  preset remoteweb -> remoteweb (buka web ONT dari WAN, firewall ONT dilonggarkan)
@@ -40,6 +42,7 @@ for a in "$@"; do
     --no-ui) WITH_UI=0 ;;
     --no-vp) WITH_VP=0 ;;
     --no-provisions) WITH_PROV=0 ;;
+    --preset-connreq) PRESETS="$PRESETS connreq" ;;
     --preset-inform) PRESETS="$PRESETS inform" ;;
     --preset-useradmin) PRESETS="$PRESETS useradmin" ;;
     --preset-remoteweb) PRESETS="$PRESETS remoteweb" ;;
@@ -63,6 +66,7 @@ ui_code() { curl -s -o /dev/null -m 10 -w '%{http_code}' "$UI_URL" || true; }
 # --- cek placeholder untuk semua provision yang mengubah ONT dan akan dipasang ---
 for p in $PRESETS; do
   case "$p" in
+    connreq) PROVS="$PROVS connreq" ;;
     inform) PROVS="$PROVS inform2" ;;
     useradmin) PROVS="$PROVS useradmin2" ;;
     remoteweb) PROVS="$PROVS remoteweb" ;;

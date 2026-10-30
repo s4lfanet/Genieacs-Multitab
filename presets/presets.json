@@ -70,5 +70,19 @@
     "args": null
    }
   ]
+ },
+ {
+  "_id": "connreq",
+  "weight": 0,
+  "channel": "connreq",
+  "events": {},
+  "precondition": "",
+  "configurations": [
+   {
+    "type": "provision",
+    "name": "connreq",
+    "args": null
+   }
+  ]
  }
 ]

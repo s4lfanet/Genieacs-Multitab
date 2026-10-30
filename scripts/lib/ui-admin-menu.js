@@ -26,7 +26,12 @@ const pages = [];     // key halaman (dianggap bagian Admin)
 const items = [];     // potongan JS yang mendorong <li> ke sidebar
 const routes = [];    // rute #!/admin/<key>
 const frame = (src) => '(0,jt.default)("iframe",{src:' + src + ',allow:"geolocation",' +
-  'style:"width:100%;height:calc(100vh - 170px);min-height:480px;border:0;background:transparent"})';
+  'style:"width:100%;height:calc(100vh - 170px);min-height:480px;border:0;background:transparent",' +
+  // halaman kita memuat <meta name=acs-page>; kalau tidak ada (file belum disalin ke public/ -> 404, atau versi lama) tampilkan pesan, bukan layar kosong
+  'onload:function(e){try{var d=e.target.contentDocument;if(d&&d.body&&!d.querySelector("meta[name=acs-page]")){' +
+  'd.documentElement.style.cssText="background:#fff;color-scheme:light";' +
+  'd.body.style.cssText="margin:0;padding:16px;font:13px/1.5 sans-serif;color:#c62828";' +
+  'd.body.textContent="Halaman "+e.target.getAttribute("src")+" tidak ditemukan di server, atau versi lama (file belum disalin ke folder public GenieACS). Jalankan ulang di server: bash scripts/ui-admin-menu.sh --all"}}catch(x){}}})';
 const hostPort = (p) => 'location.protocol+"//"+location.hostname+":' + p + '/"';
 const guard = 'window.authorizer.hasAccess("config",2)&&n.push(';   // hanya user yang boleh mengubah Config
 const sep = (label) => items.push(guard + '(0,je.default)("li.acs-sep","' + label + '")),');

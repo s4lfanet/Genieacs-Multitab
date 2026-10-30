@@ -14,8 +14,8 @@ const scripts = dir => fs.readdirSync(path.join(root, dir)).filter(f => f.endsWi
 // Provision yang MENGUBAH setelan ONT (URL ACS, kredensial, password web, firewall...). Isinya di repo berupa template
 // dengan nilai contoh (GANTI_...), jadi TIDAK BOLEH ikut terpasang tanpa diminta: kalau server target sudah punya preset
 // yang memakai provision bernama sama (mis. preset "inform" -> inform2), template ini langsung dijalankan ke semua ONT.
-const MODIFY = ["inform2", "useradmin2", "remoteweb", "nokia_pppoe"];
-const PRESET_PROV = {inform: "inform2", useradmin: "useradmin2", remoteweb: "remoteweb"};
+const MODIFY = ["connreq", "inform2", "useradmin2", "remoteweb", "nokia_pppoe"];
+const PRESET_PROV = {connreq: "connreq", inform: "inform2", useradmin: "useradmin2", remoteweb: "remoteweb"};
 const want = (opt.presets || "").split(",").filter(Boolean);
 const wantProv = new Set((opt.provs || "").split(",").filter(Boolean));
 want.forEach(p => { if (PRESET_PROV[p]) wantProv.add(PRESET_PROV[p]); });
