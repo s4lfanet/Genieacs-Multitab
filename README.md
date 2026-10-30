@@ -56,6 +56,7 @@ Panduan lengkap ada di **[docs/INSTALL.md](docs/INSTALL.md)**.
 | [docs/PROVISIONS-VP.md](docs/PROVISIONS-VP.md) | Daftar Virtual Parameter & provision, preset opsional, catatan per merk |
 | [docs/BRANDING.md](docs/BRANDING.md) | Ganti logo, judul, warna header |
 | [docs/MAP.md](docs/MAP.md) | Peta pelanggan & ODP di sidebar Admin (opsional, tanpa service/port tambahan) |
+| [docs/TEMA.md](docs/TEMA.md) | 9 tema tampilan (terang & gelap), cara kerja, dan cara menambah tema |
 | [docs/TELEGRAM-BOT.md](docs/TELEGRAM-BOT.md) | Bot Telegram, perintah, & asisten AI (multi-provider) |
 | [docs/WHATSAPP-BOT.md](docs/WHATSAPP-BOT.md) | Bot WhatsApp (opsional) — baca risikonya sebelum pasang |
 | [docs/BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md) | Backup/restore config & database |
