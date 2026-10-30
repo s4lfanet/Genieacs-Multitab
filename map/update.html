@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Update</title>
+<style>
+:root{--bg:#fff;--surface:#fff;--fg:#002f2f;--mut:#667078;--bd:#ebe0bf;--pri:#046380;--soft:#f2ebd5;--on:#fff;--ok:#16803c;--bad:#c62828;--warn:#b45309}
+*{box-sizing:border-box}html,body{margin:0}
+body{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);padding:18px 22px 32px}
+.wrap{max-width:900px}
+h1{font-size:20px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 16px}
+.card{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:16px}
+.card h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ver{padding:12px 14px;border:1px solid var(--bd);border-radius:12px;background:var(--bg)}
+.ver .k{font-size:11px;color:var(--mut);font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.ver .sha{font:700 18px ui-monospace,Consolas,monospace;margin:2px 0}.ver .d{color:var(--mut);font-size:12px}.ver .s{margin-top:3px;word-break:break-word}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:999px;font-size:12px;font-weight:700;background:var(--soft);color:var(--mut)}
+.chip i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok)}.chip.warn{color:var(--warn)}.chip.bad{color:var(--bad)}.chip.pri{color:var(--pri)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+.btn{font:inherit;font-weight:600;border:1px solid var(--bd);background:var(--surface);color:var(--fg);border-radius:10px;padding:8px 18px;cursor:pointer;transition:border-color .15s,background .15s}
+.btn:hover:not(:disabled){border-color:var(--pri);background:var(--soft)}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:var(--on)}.btn.pri:hover:not(:disabled){filter:brightness(1.1);background:var(--pri)}
+.btn.bad{color:var(--bad)}.btn.bad:hover:not(:disabled){border-color:var(--bad)}.btn:disabled{opacity:.45;cursor:not-allowed}
+.m{color:var(--mut);font-size:12px}
+ul.cm{list-style:none;margin:0;padding:0;border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+ul.cm li{display:flex;gap:12px;padding:8px 14px;border-bottom:1px solid var(--bd)}ul.cm li:last-child{border-bottom:0}
+ul.cm .h{flex:none;font:12px ui-monospace,Consolas,monospace;color:var(--pri);padding-top:1px}ul.cm .t{flex:1;min-width:0;word-break:break-word}ul.cm .dt{flex:none;color:var(--mut);font-size:12px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;margin-top:8px;cursor:pointer}
+.opt input{margin-top:3px;accent-color:var(--pri)}.opt b{display:block}.opt span{color:var(--mut);font-size:12px}
+.res{display:none;padding:12px 14px;border-radius:10px;margin-bottom:12px;font-weight:600}
+.res.ok{display:block;background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}.res.er{display:block;background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+pre{margin:0;max-height:260px;overflow:auto;padding:12px 14px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+code{font-family:ui-monospace,Consolas,monospace;background:var(--soft);border-radius:6px;padding:2px 6px}
+.note{display:flex;gap:10px;padding:11px 13px;border-radius:10px;background:color-mix(in srgb,var(--warn) 13%,transparent);font-size:12px;margin-top:12px}
+@media (max-width:700px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Update</h1>
+  <p class="sub">Periksa dan pasang pembaruan Genieacs-Multitab dari GitHub, tanpa SSH.</p>
+
+  <div class="card" id="off" style="display:none">
+    <h2>Layanan updater belum aktif</h2>
+    <p style="margin:0 0 8px">Halaman ini berbicara dengan layanan <code>genieacs-multitab-updater</code> di server. Layanan itu belum terpasang atau tidak merespons.</p>
+    <p class="m" style="margin:0">Di server, jalankan satu kali: <code>bash scripts/setup-updater.sh</code> (butuh sudo). Penjelasan: <code>docs/UPDATE.md</code>.</p>
+  </div>
+
+  <div id="main" style="display:none">
+    <div class="card">
+      <h2>Versi <span class="chip" id="chip"><i></i><span id="chipt">memuat</span></span></h2>
+      <div class="cols">
+        <div class="ver"><div class="k">Terpasang</div><div class="sha" id="cs">-</div><div class="d" id="cd"></div><div class="s" id="csub"></div></div>
+        <div class="ver"><div class="k">Terbaru di GitHub</div><div class="sha" id="rs">-</div><div class="d" id="rd"></div><div class="s" id="rsub"></div></div>
+      </div>
+      <div class="row"><button class="btn" id="check">Periksa pembaruan</button><span class="m" id="when"></span></div>
+    </div>
+
+    <div class="card" id="upd" style="display:none">
+      <h2>Pembaruan tersedia</h2>
+      <ul class="cm" id="cm"></ul>
+      <label class="opt"><input type="checkbox" checked disabled><div><b>Tampilan</b><span>Menu sidebar, tema, dan halaman (Peta, ODP, Bot, Bot WA, Update). Selalu ikut.</span></div></label>
+      <label class="opt" id="waopt" style="display:none"><input type="checkbox" id="wa"><div><b>File bot WhatsApp</b><span>wa.js, core.js, wa-page.html; service bot WA akan di-restart. Tidak mengubah pengaturan atau sesi login WA.</span></div></label>
+      <div class="note"><span>Tidak menyentuh provision, preset, Config <code>ui.*</code>, atau ONT. Kalau gagal, versi sebelumnya otomatis dikembalikan.</span></div>
+      <div class="row"><button class="btn pri" id="apply">Pasang pembaruan</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Aktivitas <span class="chip" id="st"><i></i><span id="stt">idle</span></span></h2>
+      <div class="res" id="res"></div>
+      <pre id="log">(belum ada aktivitas)</pre>
+      <div class="row"><button class="btn bad" id="rb" style="display:none">Kembalikan versi sebelumnya</button><button class="btn" id="reload" style="display:none">Muat ulang halaman (Ctrl+F5)</button></div>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+(function(){
+  var M={"--bg":"--acs-bg","--surface":"--acs-surface","--fg":"--acs-text","--mut":"--acs-muted","--bd":"--acs-border","--pri":"--acs-accent","--soft":"--acs-soft","--on":"--acs-on-accent","--ok":"--acs-ok","--bad":"--acs-bad","--warn":"--acs-warn"};
+  function ap(){var r=document.documentElement;try{var p=parent.document.documentElement,cs=parent.getComputedStyle(p);
+    Object.keys(M).forEach(function(k){var v=cs.getPropertyValue(M[k]).trim();if(v)r.style.setProperty(k,v)});
+    r.classList.toggle("dark",p.classList.contains("acs-dark"))}catch(e){}}
+  ap();try{new MutationObserver(ap).observe(parent.document.documentElement,{attributes:true})}catch(e){}
+})();
+function $(i){return document.getElementById(i)}
+function api(method,path,body){
+  return fetch(path,{method:method,credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.text().then(function(t){
+      if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
+      if(!r.ok)throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+      return t?JSON.parse(t):null})});
+}
+function plain(v){v=String(v==null?"":v).trim();return v.length>=2&&v[0]==="'"&&v[v.length-1]==="'"?v.slice(1,-1):v}
+function get(key){return api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "'+key+'"')).then(function(r){return r&&r[0]?plain(r[0].value):""})}
+function b64(o){return btoa(unescape(encodeURIComponent(JSON.stringify(o))))}
+function unb64(s){try{return JSON.parse(decodeURIComponent(escape(atob(s))))}catch(e){return null}}
+function ago(ms){if(!ms)return "belum pernah";var s=Math.max(0,Math.round((Date.now()-ms)/1000));return s<60?s+" detik lalu":s<3600?Math.round(s/60)+" menit lalu":Math.round(s/3600)+" jam lalu"}
+function chip(el,cls,t){el.className="chip "+cls}
+var S=null,sent=null,lastSeen=0;
+
+function render(){
+  var now=Date.now(),alive=!!S&&((S.hb&&now-S.hb<6*60000)||(S.updated&&now-S.updated<6*60000));
+  $("off").style.display=alive?"none":"block";
+  $("main").style.display=S?"block":"none";
+  if(!S)return;
+  var cur=S.current||{},rem=S.remote||{};
+  $("cs").textContent=cur.short||"-";$("cd").textContent=cur.date||"";$("csub").textContent=cur.subject||"";
+  $("rs").textContent=rem.short||"-";$("rd").textContent=rem.date||"";$("rsub").textContent=rem.subject||"";
+  var busy=S.state&&S.state!=="idle";
+  if(!S.checkedAt){chip($("chip"),"","");$("chipt").textContent="belum diperiksa"}
+  else if(S.behind>0){chip($("chip"),"warn","");$("chipt").textContent=S.behind+" pembaruan tersedia"}
+  else{chip($("chip"),"ok","");$("chipt").textContent="sudah terbaru"}
+  $("when").textContent=S.checkedAt?"Terakhir diperiksa "+ago(S.checkedAt):"";
+  // daftar perubahan
+  $("upd").style.display=S.behind>0?"block":"none";
+  var cm=$("cm");cm.textContent="";
+  (S.commits||[]).forEach(function(c){var li=document.createElement("li");
+    [["h",c.short],["t",c.subject],["dt",c.date]].forEach(function(p){var s=document.createElement("span");s.className=p[0];s.textContent=p[1];li.appendChild(s)});cm.appendChild(li)});
+  if(S.behind>(S.commits||[]).length){var li=document.createElement("li");li.innerHTML="<span class='t m'></span>";li.firstChild.textContent="… dan "+(S.behind-S.commits.length)+" perubahan lainnya";cm.appendChild(li)}
+  $("waopt").style.display=S.installed&&S.installed.wa?"flex":"none";
+  // status & hasil
+  var names={idle:"siaga",checking:"memeriksa…",updating:"memasang…",rollingback:"mengembalikan…"};
+  $("stt").textContent=names[S.state]||S.state;chip($("st"),busy?"pri":"ok","");
+  var r=S.lastResult,res=$("res");
+  if(r&&(!sent||r.at>=sent.at-2000)){res.className="res "+(r.ok?"ok":"er");res.textContent=(r.ok?"✓ ":"✕ ")+r.message+(r.from&&r.to?"  ("+r.from+" → "+r.to+")":"")}
+  else res.className="res";
+  $("reload").style.display=r&&r.ok&&(r.action==="apply"||r.action==="rollback")?"inline-block":"none";
+  var lg=$("log");if(S.log&&S.log.length){var atEnd=lg.scrollTop+lg.clientHeight>=lg.scrollHeight-8;lg.textContent=S.log.join("\n");if(atEnd)lg.scrollTop=lg.scrollHeight}
+  $("rb").style.display=S.canRollback?"inline-block":"none";
+  var waiting=sent&&Date.now()-sent.at<45000&&(!S.updated||S.updated<sent.at);
+  ["check","apply","rb"].forEach(function(id){$(id).disabled=busy||!!waiting||!!S.warn||!alive});
+  $("apply").disabled=$("apply").disabled||!(S.behind>0);
+  if(S.warn){$("res").className="res er";$("res").textContent="✕ "+S.warn}
+}
+function send(a,c){
+  var id=Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+  sent={id:id,at:Date.now(),a:a};
+  api("PUT","/api/config/update.request",{_id:"update.request",value:"'"+b64({id:id,a:a,c:c||["ui"]})+"'"})
+    .then(function(){$("res").className="res";fast=true;refresh()}).catch(function(e){sent=null;$("res").className="res er";$("res").textContent="✕ Gagal mengirim permintaan: "+e.message});
+  render();
+}
+var fast=false;
+function refresh(){
+  Promise.all([get("update.status"),get("update.hb")]).then(function(r){
+    var st=r[0]?unb64(r[0]):null;if(st){st.hb=parseInt(plain(r[1]),10)||0;S=st}else S=null;
+    if(sent&&S&&S.updated>=sent.at&&S.state==="idle")fast=false;
+    render();
+  }).catch(function(e){$("off").style.display="block";$("off").querySelector("p").textContent="Gagal membaca status: "+e.message});
+}
+$("check").onclick=function(){send("check")};
+$("apply").onclick=function(){
+  var c=["ui"];if($("wa").checked&&$("waopt").style.display!=="none")c.push("wa");
+  if(confirm("Pasang pembaruan sekarang?\n\nMenu/tema/halaman akan diganti"+(c.length>1?" dan bot WA di-restart":"")+". Kalau gagal, versi sebelumnya otomatis dikembalikan."))send("apply",c)};
+$("rb").onclick=function(){if(confirm("Kembalikan ke versi sebelum update terakhir?"))send("rollback")};
+$("reload").onclick=function(){try{parent.location.reload(true)}catch(e){location.reload(true)}};
+refresh();
+(function loop(){setTimeout(function(){refresh();loop()},fast?1500:5000)})();
+</script>
+</body>
+</html>

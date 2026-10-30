@@ -57,6 +57,7 @@ Panduan lengkap ada di **[docs/INSTALL.md](docs/INSTALL.md)**.
 | [docs/BRANDING.md](docs/BRANDING.md) | Ganti logo, judul, warna header |
 | [docs/MAP.md](docs/MAP.md) | Peta pelanggan & ODP di sidebar Admin (opsional, tanpa service/port tambahan) |
 | [docs/TEMA.md](docs/TEMA.md) | 9 tema tampilan (terang & gelap), cara kerja, dan cara menambah tema |
+| [docs/UPDATE.md](docs/UPDATE.md) | Update dari sidebar Admin: periksa, pasang, dan rollback tanpa SSH (layanan updater + model keamanan) |
 | [docs/TELEGRAM-BOT.md](docs/TELEGRAM-BOT.md) | Bot Telegram, perintah, & asisten AI (multi-provider) |
 | [docs/WHATSAPP-BOT.md](docs/WHATSAPP-BOT.md) | Bot WhatsApp (opsional) — baca risikonya sebelum pasang |
 | [docs/BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md) | Backup/restore config & database |
