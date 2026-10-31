@@ -2,6 +2,8 @@
 
 `bot/wa.js` adalah transport kedua di samping [bot Telegram](TELEGRAM-BOT.md) — perintah dan logic-nya **sama persis** (`bot/core.js` dipakai bersama). Bedanya hanya cara masuk/keluar pesan.
 
+> Pengaturan bot WhatsApp (nomor yang diizinkan, alert, izin aksi) dan **isi bot** bersama dengan Telegram (ambang redaman, batas online, jumlah daftar, teks `/help`) diatur dari sidebar **Admin → Pengaturan Bot**. Lihat [TELEGRAM-BOT.md](TELEGRAM-BOT.md#pengaturan-bot-lewat-ui). Scan QR ada di menu **Bot WA**.
+
 ## ⚠️ Baca dulu sebelum pasang
 
 - **Login lewat scan QR code**, bukan token API resmi. Baileys (library yang dipakai) meniru protokol WhatsApp Web yang tidak resmi — **ada risiko nomor diblokir WhatsApp/Meta sewaktu-waktu**, tanpa jaminan. Jangan pakai nomor WhatsApp pribadi atau nomor penting; pakai nomor khusus yang bisa direlakan kalau diblokir.
