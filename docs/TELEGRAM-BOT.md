@@ -42,6 +42,21 @@ Alert otomatis: bot mengirim pesan ke `bot.alert.chatIds` kalau jumlah fault mel
 | `bot.actions.enabled` | `'false'` (ubah ke `'true'` untuk ubah SSID/password/reboot) |
 | `bot.ai.enabled` / `bot.ai.provider` / `bot.ai.apiKey` / `bot.ai.baseUrl` / `bot.ai.model` / `bot.ai.dailyLimit` | `'false'` / `'anthropic'` / `''` / `''` / `'claude-opus-5-5'` / `50` |
 
+### Isi bot (ambang & jumlah daftar)
+
+Diatur dari **Admin → Pengaturan Bot → Isi Bot** (atau Config manual). Berlaku untuk bot Telegram dan WhatsApp, langsung tanpa restart. Kosongkan kolom = kembali ke nilai bawaan.
+
+| Key | Bawaan | Fungsi |
+|---|---|---|
+| `bot.redaman.limit` | `-25` | `/redaman` menampilkan ONT dengan RX lebih rendah dari ini (dBm). `/redaman -27` tetap menimpa sekali pakai |
+| `bot.redaman.good` | `-18` | batas sinyal "bagus" dalam penjelasan asisten AI |
+| `bot.redaman.floor` | `-60` | RX lebih rendah dari ini dianggap tidak valid dan diabaikan |
+| `bot.online.minutes` | `15` | ONT dianggap online bila inform terakhir lebih baru dari ini |
+| `bot.list.redaman` / `bot.list.offline` / `bot.list.cari` / `bot.list.fault` | `30` / `25` / `20` / `15` | jumlah maksimum baris pada tiap daftar |
+| `bot.help.footer` | kosong | teks tambahan di bawah `/help` (mis. kontak admin) |
+
+Bot Telegram versi lama yang berdiri sendiri (tanpa `core.js`) belum membaca pengaturan ini; perbarui `bot.js` lewat halaman Update.
+
 4. Pasang service: `bash scripts/setup-bot.sh` (butuh sudo sekali, dan service berjalan sebagai user Anda).
 5. Kirim `/id` ke bot, masukkan chat ID Anda ke `bot.telegram.allowedChatIds`, lalu coba `/status`.
 

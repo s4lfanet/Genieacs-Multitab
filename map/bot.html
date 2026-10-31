@@ -63,6 +63,7 @@ input::placeholder{color:var(--mut)}
 var ICON={
   tg:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 4L3 11l6 2.5L11.5 20l3-5 5 3.5z'/><path d='M9 13.5L21 4'/></svg>",
   ai:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z'/><path d='M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z'/></svg>",
+  tune:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6'/></svg>",
   wa:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3 20.5l1.6-5.3A8.4 8.4 0 1 1 21 11.5z'/><path d='M9 11.5h.01M12 11.5h.01M15 11.5h.01'/></svg>"
 };
 var BOOL=[["true","aktif"],["false","nonaktif"]];
@@ -75,6 +76,16 @@ var GROUPS=[
   ["bot.alert.everyMinutes","Cek alert tiap (menit)","num"],
   ["bot.alert.faultThreshold","Alert bila fault ≥","num","jumlah fault yang memicu peringatan"],
   ["bot.actions.enabled","Izinkan aksi","bool","ubah SSID/password dan reboot; tetap minta konfirmasi"]]},
+ {t:"Isi Bot",d:"Ambang dan jumlah daftar yang dipakai perintah bot (Telegram & WhatsApp). Kosongkan kolom untuk kembali ke nilai bawaan.",i:"tune",f:[
+  ["bot.redaman.limit","Redaman maksimum (dBm)","numr","/redaman menampilkan ONT dengan RX lebih rendah dari ini. Bawaan -25",{def:-25,min:-60,max:0}],
+  ["bot.redaman.good","Batas sinyal bagus (dBm)","numr","untuk penjelasan asisten AI (sinyal ≥ nilai ini = bagus). Bawaan -18",{def:-18,min:-60,max:0}],
+  ["bot.redaman.floor","Abaikan RX di bawah (dBm)","numr","nilai yang lebih rendah dianggap tidak valid/ONT mati. Bawaan -60",{def:-60,min:-100,max:0}],
+  ["bot.online.minutes","ONT dianggap online (menit)","numr","inform terakhir lebih baru dari ini = online. Bawaan 15",{def:15,min:1,max:1440}],
+  ["bot.list.redaman","Maks daftar /redaman","numr","bawaan 30",{def:30,min:1,max:100,int:1}],
+  ["bot.list.offline","Maks daftar /offline","numr","bawaan 25",{def:25,min:1,max:100,int:1}],
+  ["bot.list.cari","Maks hasil /cari","numr","bawaan 20",{def:20,min:1,max:50,int:1}],
+  ["bot.list.fault","Maks daftar /fault","numr","bawaan 15",{def:15,min:1,max:100,int:1}],
+  ["bot.help.footer","Teks tambahan di /help","text","opsional, mis. kontak admin. Tampil di bawah daftar perintah"]]},
  {t:"Asisten AI",d:"Dipakai perintah /tanya (hanya membaca). Ganti provider kapan saja.",i:"ai",f:[
   ["bot.ai.enabled","AI aktif","bool"],
   ["bot.ai.provider","Provider","sel","",["anthropic","openrouter","openai"]],
@@ -152,7 +163,8 @@ function build(){
         inp=el("input",{id:key,type:"password",autocomplete:"new-password",placeholder:isSet(key)?"•••••••• tersimpan — kosongkan untuk tidak mengubah":"belum diisi"});
         if(isSet(key))lab.appendChild(el("small",{"class":"ok",text:"✓ sudah tersimpan"}));
       }else{
-        inp=el("input",{id:key,type:type==="num"?"number":"text",value:plain(cur[key])});
+        inp=el("input",{id:key,type:type==="num"?"number":(type==="numr"?"number":"text"),value:plain(cur[key])});
+        if(type==="numr"){var o=f[4]||{};inp.setAttribute("step",o.int?"1":"any");inp.setAttribute("min",o.min);inp.setAttribute("max",o.max);inp.setAttribute("placeholder","bawaan "+o.def)}
       }
       card.appendChild(el("div",{"class":"f"},[lab,inp]));
     });
@@ -172,16 +184,28 @@ function save(){
     var v=type==="bool"?(node.checked?"true":"false"):node.value.trim();
     if(type==="secret"&&v==="")return;                       // kosong = jangan ubah
     if(/['"\\]/.test(v)){bad=f[1]+": tidak boleh berisi tanda kutip atau backslash";return}
+    if(type==="numr"){
+      var o=f[4]||{};
+      if(v===""){                                              // kosong = kembali ke bawaan (hapus key)
+        if(cur[key]!==undefined)jobs.push(function(){return api("DELETE","/api/config/"+encodeURIComponent(key)).then(function(){delete cur[key]})});
+        return}
+      var nv=Number(v);
+      if(isNaN(nv)||nv<o.min||nv>o.max||(o.int&&nv%1!==0)){bad=f[1]+": harus angka "+(o.int?"bulat ":"")+"antara "+o.min+" dan "+o.max;return}
+      var vv=String(nv);
+      if(cur[key]!==undefined&&plain(cur[key])===vv)return;
+      jobs.push(function(){return api("PUT","/api/config/"+encodeURIComponent(key),{_id:key,value:vv}).then(function(){cur[key]=vv})});
+      return}
+    if(type==="num"&&v===""&&cur[key]===undefined)return;
     if(type==="num"){if(v===""||isNaN(Number(v))||Number(v)<0){bad=f[1]+": harus angka";return}}
     var val=type==="num"?String(Number(v)):"'"+v+"'";
     if(cur[key]!==undefined&&String(cur[key]).trim()===val)return;   // tidak berubah
     if(cur[key]===undefined&&v===""&&type!=="bool")return;          // tidak ada & kosong: tidak perlu dibuat
-    jobs.push(api("PUT","/api/config/"+encodeURIComponent(key),{_id:key,value:val}).then(function(){cur[key]=val}));
+    jobs.push(function(){return api("PUT","/api/config/"+encodeURIComponent(key),{_id:key,value:val}).then(function(){cur[key]=val})});
   })});
   if(bad)return say(bad,"er");
   if(!jobs.length){setDirty(false);return say("Tidak ada perubahan")}
   say("Menyimpan…");$("save").disabled=true;
-  Promise.all(jobs).then(function(){build();say(jobs.length+" pengaturan tersimpan","ok")}).catch(function(e){$("save").disabled=false;say("Gagal menyimpan: "+e.message,"er")});
+  Promise.all(jobs.map(function(j){return j()})).then(function(){build();say(jobs.length+" pengaturan tersimpan","ok")}).catch(function(e){$("save").disabled=false;say("Gagal menyimpan: "+e.message,"er")});
 }
 $("save").onclick=save;
 $("cancel").onclick=function(){build();say("")};

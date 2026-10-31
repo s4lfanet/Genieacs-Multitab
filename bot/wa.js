@@ -23,7 +23,7 @@ const core = require("./core.js");
 const { mongoBin } = core;
 const { log, sleep, audit, cmdCari, cmdOffline, cmdRedaman, cmdCek, cmdStatus, cmdFault,
   cmdSsid, cmdRefresh, cmdTanya, PENDING, PENDING_TTL, pendingCleanup, prepareChange, prepareReboot,
-  executeChange, HELP, checkAlerts, readGenieConfig, list } = core;
+  executeChange, makeHelp, contentSettings, checkAlerts, readGenieConfig, list } = core;
 
 let makeWASocket, useMultiFileAuthState, DisconnectReason, Boom, qrcodeTerminal;
 try {
@@ -157,7 +157,9 @@ function loadConfig() {
     aiApiKey: pick("bot.ai.apiKey", ""),
     aiBaseUrl: pick("bot.ai.baseUrl", ""),
     aiModel: pick("bot.ai.model", "claude-opus-5-5"),
-    aiDailyLimit: parseInt(pick("bot.ai.dailyLimit", 50), 10) || 50
+    aiDailyLimit: parseInt(pick("bot.ai.dailyLimit", 50), 10) || 50,
+    // isi bot (ambang redaman, jumlah daftar, dll) dari Config bot.* -- diatur di halaman Pengaturan Bot
+    ...contentSettings(pick)
   };
 }
 
@@ -170,7 +172,7 @@ function normNum(s) {
   return d;
 }
 
-const HELP_WA = HELP + "\n\nDi WhatsApp perintah boleh tanpa '/': ketik saja status, cek budi, cari rw01, dst." +
+const helpWa = (cfg) => makeHelp(cfg) + "\n\nDi WhatsApp perintah boleh tanpa '/': ketik saja status, cek budi, cari rw01, dst." +
   "\n\nKonfirmasi aksi (ubahssid/ubahpass/reboot): balas *ya* untuk menyetujui, *batal* untuk membatalkan.";
 
 const WA_CMDS = ["cek", "cari", "ssid", "ubahssid", "ubahpass", "refresh", "reboot", "tanya", "ai",
@@ -238,14 +240,14 @@ async function handleText(cfg, sock, jid, text, phone) {
       if (!arg) out = "Pakai: /reboot <username/SN/IP>";
       else { const res = await prepareReboot(cfg, jid, arg); out = res.text; pendingKey = res.key; }
     }
-    else if (cmd === "/start" || cmd === "/help" || cmd === "/menu") out = HELP_WA;
+    else if (cmd === "/start" || cmd === "/help" || cmd === "/menu") out = helpWa(cfg);
     else if (cmd === "/cek") out = arg ? await cmdCek(cfg, arg) : "Pakai: /cek <username/SN/IP>";
     else if (cmd === "/status") out = await cmdStatus(cfg);
     else if (cmd === "/fault") out = await cmdFault(cfg);
     else if (cmd === "/cari") out = arg ? await cmdCari(cfg, arg) : "Pakai: /cari <kata>";
     else if (cmd === "/offline") out = await cmdOffline(cfg);
     else if (cmd === "/redaman") out = await cmdRedaman(cfg, arg);
-    else if (cmd[0] === "/") out = "Perintah tidak dikenal.\n\n" + HELP_WA;
+    else if (cmd[0] === "/") out = "Perintah tidak dikenal.\n\n" + helpWa(cfg);
     else out = await cmdCek(cfg, text);
   } catch (e) {
     log("WA ERROR", e.message);
@@ -384,7 +386,7 @@ async function main() {
     if (what === "config") console.log(JSON.stringify({ enabled: cfg.enabled, allowedNumbers: cfg.allowedNumbers, aiEnabled: cfg.aiEnabled, aiProvider: cfg.aiProvider }));
     else if (what === "cek") console.log(await cmdCek(cfg, args.slice(2).join(" ")));
     else if (what === "status") console.log(await cmdStatus(cfg));
-    else if (what === "help") console.log(HELP_WA);
+    else if (what === "help") console.log(helpWa(cfg));
     else console.log("selftest: config | cek <q> | status | help");
     return;
   }

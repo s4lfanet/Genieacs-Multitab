@@ -110,6 +110,26 @@ const PROJ = ["_id", "_lastInform", "_deviceId",
   "VirtualParameters.activedevices", "VirtualParameters.ssidActive",
   "InternetGatewayDevice.DeviceInfo.SoftwareVersion"];
 
+// Isi bot yang bisa diatur dari UI (Config bot.*). Nilai kosong/rusak -> default.
+const DEF = { redamanLimit: -25, redamanGood: -18, redamanFloor: -60, onlineMinutes: 15,
+  listCari: 20, listOffline: 25, listRedaman: 30, listFault: 15, helpFooter: "" };
+function P(cfg, k) { const v = cfg && cfg[k]; return (typeof v === "number" && isFinite(v)) ? v : DEF[k]; }
+function onlineMs(cfg) { return P(cfg, "onlineMinutes") * 60 * 1000; }
+function contentSettings(pick) {
+  const out = {};
+  Object.keys(DEF).forEach((k) => {
+    if (k === "helpFooter") { out[k] = String(pick("bot.help.footer", "") || ""); return; }
+    const key = { redamanLimit: "bot.redaman.limit", redamanGood: "bot.redaman.good", redamanFloor: "bot.redaman.floor",
+      onlineMinutes: "bot.online.minutes", listCari: "bot.list.cari", listOffline: "bot.list.offline",
+      listRedaman: "bot.list.redaman", listFault: "bot.list.fault" }[k];
+    const v = parseFloat(pick(key, ""));
+    out[k] = isFinite(v) ? v : DEF[k];
+  });
+  out.onlineMinutes = Math.max(1, out.onlineMinutes);
+  ["listCari", "listOffline", "listRedaman", "listFault"].forEach((k) => { out[k] = Math.max(1, Math.round(out[k])); });
+  return out;
+}
+
 async function findDevices(cfg, q, limit) {
   q = (q || "").trim();
   if (q.replace(/[^A-Za-z0-9]/g, "").length < 3) return { error: "Kata kunci minimal 3 huruf/angka." };
@@ -125,7 +145,7 @@ async function findDevices(cfg, q, limit) {
 }
 
 async function formatDevice(cfg, d) {
-  const online = d._lastInform && (Date.now() - new Date(d._lastInform).getTime()) < 15 * 60 * 1000;
+  const online = d._lastInform && (Date.now() - new Date(d._lastInform).getTime()) < onlineMs(cfg);
   const ppp = val(d, "VirtualParameters.pppoeIP");
   const tr = val(d, "VirtualParameters.IPTR069");
   const w = await Promise.all([webCheck(ppp), webCheck(tr)]);
@@ -215,32 +235,35 @@ function shortLine(d) {
 }
 
 async function cmdCari(cfg, q) {
-  const r = await findDevices(cfg, q, 21);
+  const LC = P(cfg, "listCari");
+  const r = await findDevices(cfg, q, LC + 1);
   if (r.error) return r.error;
   if (!r.list.length) return "Tidak ditemukan: " + q;
   const now = Date.now();
-  return "🔎 Hasil '" + q + "' (" + (r.list.length > 20 ? "20+" : r.list.length) + "):\n" + r.list.slice(0, 20).map((d) =>
-    ((d._lastInform && now - new Date(d._lastInform).getTime() < 900000) ? "🟢 " : "🔴 ") + shortLine(d)).join("\n") +
+  return "🔎 Hasil '" + q + "' (" + (r.list.length > LC ? LC + "+" : r.list.length) + "):\n" + r.list.slice(0, LC).map((d) =>
+    ((d._lastInform && now - new Date(d._lastInform).getTime() < onlineMs(cfg)) ? "🟢 " : "🔴 ") + shortLine(d)).join("\n") +
     "\n\nDetail: /cek <username>";
 }
 
 async function cmdOffline(cfg) {
-  const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const since = new Date(Date.now() - onlineMs(cfg)).toISOString();
+  const LO = P(cfg, "listOffline");
   const list = await nbiGet(cfg, "devices", { _lastInform: { $lt: since } }, PROJ);
-  if (!list.length) return "✅ Semua ONT online (inform < 15 menit).";
+  if (!list.length) return "✅ Semua ONT online (inform < " + P(cfg, "onlineMinutes") + " menit).";
   list.sort((a, b) => new Date(b._lastInform) - new Date(a._lastInform));
-  return "🔴 ONT offline (" + list.length + "), 25 terbaru putus:\n" + list.slice(0, 25).map((d) =>
+  return "🔴 ONT offline (" + list.length + "), " + LO + " terbaru putus:\n" + list.slice(0, LO).map((d) =>
     "- " + (val(d, "VirtualParameters.pppoeUsername") || d._id) + " | " + (d._deviceId ? d._deviceId._ProductClass : "-") + " | " + ago(d._lastInform)).join("\n");
 }
 
 async function cmdRedaman(cfg, limitArg) {
-  const lim = parseFloat(limitArg) || -25;
-  const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const lim = parseFloat(limitArg) || P(cfg, "redamanLimit");
+  const floor = P(cfg, "redamanFloor"), LR = P(cfg, "listRedaman");
+  const since = new Date(Date.now() - onlineMs(cfg)).toISOString();
   const list = (await nbiGet(cfg, "devices", { _lastInform: { $gt: since } }, PROJ))
-    .filter((d) => { const v = rxNum(d); return v !== null && v < lim && v > -60; });
+    .filter((d) => { const v = rxNum(d); return v !== null && v < lim && v > floor; });
   if (!list.length) return "✅ Tidak ada ONT online dengan RX di bawah " + lim + " dBm.";
   list.sort((a, b) => rxNum(a) - rxNum(b));
-  return "📉 RX di bawah " + lim + " dBm (" + list.length + " ONT), terburuk dulu:\n" + list.slice(0, 30).map((d) =>
+  return "📉 RX di bawah " + lim + " dBm (" + list.length + " ONT), terburuk dulu:\n" + list.slice(0, LR).map((d) =>
     "- " + rxNum(d) + " dBm | " + (val(d, "VirtualParameters.pppoeUsername") || d._id) + " | " + (d._deviceId ? d._deviceId._ProductClass : "-")).join("\n");
 }
 
@@ -256,7 +279,7 @@ async function cmdCek(cfg, q) {
 }
 
 async function cmdStatus(cfg) {
-  const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const since = new Date(Date.now() - onlineMs(cfg)).toISOString();
   const all = await nbiGet(cfg, "devices", {}, ["_id"]);
   const online = await nbiGet(cfg, "devices", { _lastInform: { $gt: since } }, ["_id"]);
   const faults = await nbiGet(cfg, "faults", {}, ["code"]);
@@ -270,7 +293,7 @@ async function cmdStatus(cfg) {
   return [
     "📊 Status GenieACS",
     "Total ONT: " + all.length,
-    "Online (15 menit): " + online.length,
+    "Online (" + P(cfg, "onlineMinutes") + " menit): " + online.length,
     "Fault: " + faults.length + (faults.length ? " (" + Object.keys(byCode).map((k) => k + "=" + byCode[k]).join(", ") + ")" : ""),
     "Laporan remote web Huawei terakhir: " + report
   ].join("\n");
@@ -280,7 +303,7 @@ async function cmdFault(cfg) {
   const faults = await nbiGet(cfg, "faults", {}, ["device", "channel", "code", "message", "timestamp"]);
   if (!faults.length) return "✅ Tidak ada fault.";
   faults.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  return "⚠️ Fault (" + faults.length + "), 15 terbaru:\n" + faults.slice(0, 15).map((f) =>
+  return "⚠️ Fault (" + faults.length + "), " + P(cfg, "listFault") + " terbaru:\n" + faults.slice(0, P(cfg, "listFault")).map((f) =>
     "- " + ago(f.timestamp) + " | " + f.device + " | " + f.channel + " | " + f.code + (f.message ? " | " + String(f.message).slice(0, 80) : "")).join("\n");
 }
 
@@ -379,7 +402,7 @@ async function prepareReboot(cfg, chatId, q) {
   const r = await findOne(cfg, q);
   if (r.error) return { text: r.error };
   const d = r.dev;
-  const online = d._lastInform && (Date.now() - new Date(d._lastInform).getTime()) < 15 * 60 * 1000;
+  const online = d._lastInform && (Date.now() - new Date(d._lastInform).getTime()) < onlineMs(cfg);
   const key = Math.random().toString(36).slice(2, 10);
   const user = val(d, "VirtualParameters.pppoeUsername") || d._id;
   PENDING[key] = { chatId, deviceId: d._id, user, kind: "reboot", created: Date.now() };
@@ -443,7 +466,8 @@ function pendingCleanup() { Object.keys(PENDING).forEach((k) => { if (Date.now()
 // OpenAI-compatible lain lewat bot.ai.baseUrl). Lihat docs/TELEGRAM-BOT.md -> "Provider AI".
 // Konfigurasi AI dibagi lintas transport (satu `bot.ai.*` di Config, bukan per-transport).
 
-const AI_SYSTEM = [
+function makeAiSystem(cfg) {
+  return [
   "Kamu asisten teknis NOC untuk ISP kecil yang mengelola ONT/modem pelanggan lewat GenieACS (TR-069).",
   "Jawab dalam Bahasa Indonesia, singkat dan praktis, untuk teknisi lewat chat (teks biasa, tanpa markdown tabel).",
   "",
@@ -456,12 +480,15 @@ const AI_SYSTEM = [
   "Konteks jaringan:",
   "- Merk ONT: Huawei (HG8145V5, EG8041V5, HG8245H5, dll), ZTE (F670L, F679D, F663NV3A, F609), FiberHome (HG6145D2, HG6045F3), Nokia/ALCL (G-1425G-H), C-Data, CIOT.",
   "- VLAN: 1010 = TR069/manajemen, 30 = internet PPPoE, 151 = layanan lain/bridge.",
-  "- ONT 'online' bila inform terakhir < 15 menit (interval inform 300 detik).",
-  "- RX power: >= -18 dBm bagus, -18..-25 lumayan, < -25 buruk.",
+  "- ONT 'online' bila inform terakhir < " + P(cfg, "onlineMinutes") + " menit (interval inform 300 detik).",
+  "- RX power: >= " + P(cfg, "redamanGood") + " dBm bagus, " + P(cfg, "redamanGood") + ".." + P(cfg, "redamanLimit") + " lumayan, < " + P(cfg, "redamanLimit") + " buruk.",
   "- Remote web dibuka lewat provision 'remoteweb'. Penyebab umum tertutup: Huawei HG8145V5 aturan ACL AccessControl blokir HTTP dari WAN atau WanAccess kosong; FiberHome perlu X_FH_ACL Rule Direction 0 dan 1 (HG6045F3 RP3441 juga RemoteAccess); ZTE F670L perlu IPV4ServiceControl HTTP WAN_ALL; ZTE F663NV3A firmware CMCC dengan WAN gabungan TR069+INTERNET tidak bisa dibuka lewat TR-069.",
   "- ZTE F670L di OLT C-Data: WAN dari OLT lewat OMCI (nama omci_ipv4_*); PPPoE ditambah lewat TR-069 di WANConnectionDevice.1 dengan ConnectionType diset dulu.",
   "- Fault umum: too_many_commits (provision berulang), cwmp.9002/9003/9005/9007 (ONT menolak parameter), session_terminated."
-].join("\n");
+  ].join("\n");
+}
+const AI_SYSTEM = makeAiSystem();
+const aiSystem = makeAiSystem;
 
 const AI_TOOLS = [
   { name: "cari_ont", description: "Cari ONT berdasarkan username PPPoE (sebagian), SN, IP, atau ID. Mengembalikan daftar maksimal 20 ONT dengan status online dan RX.",
@@ -474,9 +501,9 @@ const AI_TOOLS = [
     input_schema: { type: "object", properties: { kata: { type: "string" } }, required: ["kata"], additionalProperties: false } },
   { name: "daftar_fault", description: "Daftar fault GenieACS terbaru (semua ONT).", input_schema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "status_ringkas", description: "Ringkasan GenieACS: total ONT, online, jumlah fault, laporan remote web Huawei terakhir.", input_schema: { type: "object", properties: {}, additionalProperties: false } },
-  { name: "ont_offline", description: "Daftar ONT yang tidak inform lebih dari 15 menit.", input_schema: { type: "object", properties: {}, additionalProperties: false } },
+  { name: "ont_offline", description: "Daftar ONT yang tidak inform lebih dari batas online (default 15 menit).", input_schema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "ont_redaman", description: "Daftar ONT online dengan RX di bawah batas dBm.",
-    input_schema: { type: "object", properties: { batas: { type: "number", description: "default -25" } }, additionalProperties: false } },
+    input_schema: { type: "object", properties: { batas: { type: "number", description: "default sesuai pengaturan bot (bawaan -25)" } }, additionalProperties: false } },
   { name: "laporan_remoteweb", description: "Hasil laporan otomatis remote web Huawei terakhir (ONT yang web-nya tertutup dan penyebabnya).", input_schema: { type: "object", properties: {}, additionalProperties: false } }
 ];
 
@@ -541,7 +568,7 @@ const AI_PROVIDER_ANTHROPIC = {
   async call(cfg, messages) {
     const body = {
       model: cfg.aiModel, max_tokens: 16000,
-      system: AI_SYSTEM, tools: AI_TOOLS, messages: messages,
+      system: makeAiSystem(cfg), tools: AI_TOOLS, messages: messages,
       output_config: { effort: "medium" },
       cache_control: { type: "ephemeral" }
     };
@@ -581,7 +608,7 @@ function aiBaseUrlOpenAI(cfg) {
   throw new Error("bot.ai.baseUrl belum diisi (wajib untuk provider '" + cfg.aiProvider + "')");
 }
 const AI_PROVIDER_OPENAI = {
-  init(question) { return [{ role: "system", content: AI_SYSTEM }, { role: "user", content: question }]; },
+  init(question) { return [{ role: "system", content: makeAiSystem(cfg) }, { role: "user", content: question }]; },
   async call(cfg, messages) {
     const body = { model: cfg.aiModel, max_tokens: 16000, messages: messages, tools: aiToolsOpenAI(), tool_choice: "auto" };
     const headers = { "Content-Type": "application/json", Authorization: "Bearer " + cfg.aiApiKey };
@@ -653,7 +680,9 @@ async function cmdTanya(cfg, chatId, question) {
   return "AI butuh terlalu banyak langkah; coba perjelas pertanyaannya.";
 }
 
-const HELP = [
+function makeHelp(cfg) {
+  const ft = cfg && cfg.helpFooter ? "\n\n" + cfg.helpFooter : "";
+  return [
   "🤖 Bot GenieACS",
   "",
   "/cek <kata kunci>  - detail 1 ONT: status, sinyal, WAN, SSID, fault",
@@ -663,16 +692,18 @@ const HELP = [
   "/refresh <kata kunci> - ambil data terbaru dari ONT (seperti Summon)",
   "/reboot <kata kunci>  - restart ONT (dengan konfirmasi)",
   "/tanya <pertanyaan>   - tanya asisten AI (analisa, hanya membaca data)",
-  "/cari <kata>       - daftar ONT yang cocok (maks 20)",
-  "/offline           - ONT yang tidak inform > 15 menit",
-  "/redaman [batas]   - ONT dengan RX di bawah batas (default -25 dBm)",
+  "/cari <kata>       - daftar ONT yang cocok (maks " + P(cfg, "listCari") + ")",
+  "/offline           - ONT yang tidak inform > " + P(cfg, "onlineMinutes") + " menit",
+  "/redaman [batas]   - ONT dengan RX di bawah batas (default " + P(cfg, "redamanLimit") + " dBm)",
   "/status            - ringkasan GenieACS",
   "/fault             - daftar fault terbaru",
   "",
   "Kata kunci: username PPPoE (lengkap/sebagian), SN ONT, IP PPPoE/TR069, atau ID device.",
   "Contoh: /cek budi@rw01  |  /cek ZTEGXXXXXXXX  |  /cari rw01  |  /redaman -27",
   "Bisa juga langsung kirim kata kunci tanpa perintah."
-].join("\n");
+  ].join("\n") + ft;
+}
+const HELP = makeHelp();
 
 // ---------- alert lonjakan fault (baca saja) ----------
 async function checkAlerts(cfg, sendFn) {
@@ -700,9 +731,9 @@ module.exports = {
   // aksi dengan konfirmasi
   PENDING, PENDING_TTL, pendingCleanup, findOne, wlanList, ssidLine, prepareChange, prepareReboot, executeChange,
   // AI
-  AI_SYSTEM, AI_TOOLS, aiRunTool, aiQuotaOk, aiProvider,
+  AI_SYSTEM, aiSystem, AI_TOOLS, contentSettings, P, aiRunTool, aiQuotaOk, aiProvider,
   // teks
-  HELP,
+  HELP, makeHelp,
   // alert
   checkAlerts
 };
