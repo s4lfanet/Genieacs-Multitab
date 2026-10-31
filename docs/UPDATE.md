@@ -13,7 +13,7 @@ Lalu Ctrl+F5 dan buka Admin → Update. Opsi `setup-updater.sh`: `--branch`, `--
 
 ## Cara kerja
 
-Halaman hanya berjalan di browser, jadi ia tidak bisa menjalankan perintah di server. Ia berbicara dengan layanan `genieacs-multitab-updater` lewat tiga key Config (sama seperti QR bot WA): `update.request` (permintaan dari halaman), `update.status` (versi, daftar perubahan, log), `update.hb` (detak jantung).
+Halaman hanya berjalan di browser, jadi ia tidak bisa menjalankan perintah di server. Ia berbicara dengan layanan `genieacs-multitab-updater` lewat dua key Config (sama seperti QR bot WA): `update.request` (permintaan dari halaman) dan `update.status` (versi, daftar perubahan, log). Detak jantung layanan dibaca dari file status (lihat bagian Status layanan).
 
 - **Periksa:** `git fetch` lalu bandingkan dengan `origin/main`. Otomatis juga tiap 6 jam.
 - **Pasang:** snapshot file yang akan diubah → `git merge --ff-only origin/main` → `scripts/ui-admin-menu.sh` dengan komponen yang sudah terpasang → cek UI menjawab 200. Gagal di langkah mana pun: snapshot dikembalikan otomatis.
@@ -36,7 +36,7 @@ Yang perlu diterima: siapa pun yang punya izin menulis Config di GenieACS (admin
 
 Halaman **Admin → Sistem → Status** menampilkan kondisi **UI (3000), CWMP (7547), NBI (7557), dan FS (7567)**: berjalan/mati/tidak merespons, respons HTTP dan latensi, lama berjalan, memori, PID, dan jumlah restart. Di bawahnya layanan pendukung (MongoDB, bot Telegram, bot WA, updater) dan kondisi server (RAM, disk, beban, jumlah ONT online, fault).
 
-Browser hanya bisa menjangkau port UI, dan status systemd tidak bisa dibaca dari browser, jadi datanya dikumpulkan oleh layanan updater yang sama (`systemctl show` + probe HTTP lokal ke tiap port) lalu diterbitkan ke Config `sys.status`. Agar hemat, ia diperbarui tiap ±10 detik **hanya selama halaman Status dibuka** (halaman menulis tanda `sys.watch` tiap ±20 detik); selain itu tiap 5 menit. Halaman ini hanya **membaca** dan tidak punya tombol restart.
+Browser hanya bisa menjangkau port UI, dan status systemd tidak bisa dibaca dari browser, jadi datanya dikumpulkan oleh layanan updater yang sama (`systemctl show` + probe HTTP lokal ke tiap port) lalu ditulis ke **file statis** bernama acak di folder `public` GenieACS (`sys-<acak>.json`, nama dicatat sekali di Config `sys.file`), diperbarui tiap ±20 detik. Sengaja **bukan** key Config: UI GenieACS menampilkan banner *"Configuration has been modified, please reload the page"* setiap isi Config berubah, jadi menulis status berkala ke Config membuat banner itu muncul terus. Sekarang Config hanya ditulis saat Anda menekan tombol (periksa/pasang/rollback). Halaman ini hanya **membaca** dan tidak punya tombol restart.
 
 Kriteria: **Berjalan** = unit `active` dan probe menjawab (UI/NBI harus HTTP 200; CWMP/FS cukup menjawab HTTP apa pun karena menolak GET dengan 405/404). **Tidak merespons** = unit aktif tetapi probe gagal. **Mati/Gagal** = unit tidak aktif. Port bisa diubah lewat `ports` di `updater.conf`.
 
