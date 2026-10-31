@@ -38,7 +38,7 @@ Catatan VP password: GenieACS 1.2 memberi `args[1]` = nilai yang di-set dan `arg
 |---|---|---|---|
 | `bootstrap` | preset `bootstrap` (dipasang otomatis bersama provisions) | Bersihkan cache data model saat BOOTSTRAP | tidak |
 | `default` | preset `default` (dipasang otomatis bersama provisions) | Refresh info dasar + semua VP (per jam/harian) | hanya 1 hal: `X_HW_VenderClassID` WAN IP Huawei dikosongkan |
-| `inform2` | `--preset-inform` | Setel URL ACS, user/pass ACS, connection request (password deterministik per device), periodic inform | **ya** |
+| `inform2` | `--preset-inform` (**dinonaktifkan sementara**, butuh `GM_ENABLE_INFORM=1`) | Setel URL ACS, user/pass ACS, connection request (password deterministik per device), periodic inform | **ya** |
 | `useradmin2` | `--preset-useradmin` | Paksa user & superadmin web ONT lewat VP (Nokia memakai password kompleks) | **ya** |
 | `remoteweb` | `--preset-remoteweb` | Buka web ONT dari WAN: Huawei (WebUserInfo, AclServices, firewall), ZTE (`IPV4ServiceControl` HTTP/WAN_ALL), FiberHome (`X_FH_ACL.Rule` Direction 1 & 0, `RemoteAccess`), CMCC, Nokia (`X_ALU-COM_WanAccessCfg`) | **ya** |
 | `nokia_pppoe` | preset per device buatan Anda | Buat WAN PPPoE di Nokia/ALCL: `args: [vlan, "user", "pass"]` | **ya** |

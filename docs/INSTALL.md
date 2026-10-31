@@ -75,7 +75,7 @@ VP diisi oleh provision `default`, yang di-refresh tiap jam atau tiap ONT inform
 | `--provision=NAME` | pasang provision yang mengubah ONT tanpa presetnya (mis. `--provision=nokia_pppoe`); nilai `GANTI_` ditolak |
 | `--overwrite` | timpa VP/provision/preset yang sudah ada **dan berbeda** (default: dilewati). Backup tetap dibuat |
 | `--preset-connreq` | preset `connreq` → provision `connreq` (**mengubah ONT**, tetapi hanya user/password connection request supaya Summon berfungsi; tanpa nilai `GANTI_`, tidak menyentuh URL/kredensial ACS). Lihat TROUBLESHOOTING |
-| `--preset-inform` | preset `inform` → provision `inform2` (**mengubah ONT**: URL ACS, user/pass ACS, connection request, interval inform) |
+| `--preset-inform` | **DINONAKTIFKAN sementara.** preset `inform` → provision `inform2` (**mengubah ONT**: URL ACS, user/pass ACS, user/pass connection request, interval inform). Ditolak kecuali `GM_ENABLE_INFORM=1`. Untuk memperbaiki Summon saja, pakai `--preset-connreq` |
 | `--preset-useradmin` | preset `useradmin` → `useradmin2` (**mengubah ONT**: user/password web ONT dipaksa setiap inform) |
 | `--preset-remoteweb` | preset `remoteweb` → `remoteweb` (**mengubah ONT**: buka web dari WAN, firewall ONT dilonggarkan) |
 | `--force` | tetap jalan walau UI belum 200 sebelum instal (rollback otomatis jadi tidak bisa dinilai) |

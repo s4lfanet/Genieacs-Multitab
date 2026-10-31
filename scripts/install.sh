@@ -17,7 +17,8 @@
 # Opsional (MENGUBAH setelan ONT, baca docs/PROVISIONS-VP.md dulu):
 #   --preset-connreq    preset connreq -> connreq (HANYA user/pass connection request ONT, supaya Summon/refresh
 #                       berfungsi; tidak mengubah URL/kredensial ACS. Aman, tanpa GANTI_; lihat docs/TROUBLESHOOTING.md)
-#   --preset-inform     preset inform -> inform2 (URL ACS, user/pass ACS, conn request, interval)
+#   --preset-inform     DINONAKTIFKAN SEMENTARA di installer ini. preset inform -> inform2 (menyetel URL ACS, user/pass
+#                       ACS, user/pass connection request, interval ke SEMUA ONT). Ditolak kecuali GM_ENABLE_INFORM=1.
 #   --preset-useradmin  preset useradmin -> useradmin2 (paksa user/password web ONT)
 #   --preset-remoteweb  preset remoteweb -> remoteweb (buka web ONT dari WAN, firewall ONT dilonggarkan)
 #   --provision=NAME    pasang provision yang mengubah ONT tanpa preset (mis. nokia_pppoe)
@@ -55,6 +56,21 @@ for a in "$@"; do
     *) echo "Opsi tidak dikenal: $a (lihat --help)"; exit 2 ;;
   esac
 done
+
+# --- inform otomatis (inform2) DINONAKTIFKAN sementara ---
+# inform2 menulis URL ACS, user/password ACS, dan user/password connection request ke semua ONT. Nilai yang salah memutus
+# ONT dari ACS dan tidak bisa dipulihkan dari GenieACS, jadi tidak boleh aktif lewat installer secara tidak sengaja.
+# Server yang sudah memakai preset "inform" TIDAK terpengaruh (preset/provision yang ada tidak disentuh).
+# Untuk mengaktifkannya lagi dengan sadar: GM_ENABLE_INFORM=1 bash scripts/install.sh --preset-inform ...
+case " $PRESETS " in *" inform "*) INFORM_REQ=1 ;; esac
+case " $PROVS " in *" inform2 "*) INFORM_REQ=1 ;; esac
+if [ "${INFORM_REQ:-0}" = 1 ] && [ "${GM_ENABLE_INFORM:-0}" != 1 ]; then
+  echo "ERROR: inform otomatis (preset 'inform' / provision 'inform2') DINONAKTIFKAN sementara di installer."
+  echo "       Ia menyetel URL ACS, user/password ACS, dan user/password connection request ke SEMUA ONT."
+  echo "       Untuk hanya memperbaiki Summon (user/password connection request), pakai: --preset-connreq"
+  echo "       Untuk mengaktifkan inform2 dengan sadar: GM_ENABLE_INFORM=1 bash scripts/install.sh --preset-inform"
+  exit 2
+fi
 
 MONGO="$(command -v mongo || command -v mongosh || true)"
 [ -n "$MONGO" ] || { echo "ERROR: mongo / mongosh tidak ditemukan"; exit 1; }
