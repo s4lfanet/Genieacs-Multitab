@@ -16,7 +16,7 @@ const path = require("path");
 const core = require("./core.js");
 const { log, sleep, audit, request, cmdCari, cmdOffline, cmdRedaman, cmdCek, cmdStatus, cmdFault,
   cmdSsid, cmdRefresh, cmdTanya, PENDING, PENDING_TTL, pendingCleanup, prepareChange, prepareReboot,
-  executeChange, aiRunTool, HELP, checkAlerts, readGenieConfig, list } = core;
+  executeChange, aiRunTool, makeHelp, contentSettings, checkAlerts, readGenieConfig, list } = core;
 
 const CONFIG_FILE = path.join(__dirname, "config.json");
 
@@ -43,7 +43,9 @@ function loadConfig() {
     aiApiKey: pick("bot.ai.apiKey", ""),
     aiBaseUrl: pick("bot.ai.baseUrl", ""),
     aiModel: pick("bot.ai.model", "claude-opus-5-5"),
-    aiDailyLimit: parseInt(pick("bot.ai.dailyLimit", 50), 10) || 50
+    aiDailyLimit: parseInt(pick("bot.ai.dailyLimit", 50), 10) || 50,
+    // isi bot (ambang redaman, jumlah daftar, dll) dari Config bot.* -- diatur di halaman Pengaturan Bot
+    ...contentSettings(pick)
   };
 }
 
@@ -85,7 +87,7 @@ async function handleCallback(cfg, cq) {
   return send(cfg, chatId, res);
 }
 
-const HELP_TG = HELP + "\n/id                - chat ID Anda";
+const helpTg = (cfg) => makeHelp(cfg) + "\n/id                - chat ID Anda";
 
 async function handle(cfg, msg) {
   const chatId = String(msg.chat.id);
@@ -124,14 +126,14 @@ async function handle(cfg, msg) {
       if (!arg) out = "Pakai: /reboot <username/SN/IP>";
       else { const res = await prepareReboot(cfg, chatId, arg); out = res.text; keyboard = res.keyboard; }
     }
-    else if (cmd === "/start" || cmd === "/help" || cmd === "/menu") out = HELP_TG;
+    else if (cmd === "/start" || cmd === "/help" || cmd === "/menu") out = helpTg(cfg);
     else if (cmd === "/cek") out = arg ? await cmdCek(cfg, arg) : "Pakai: /cek <username/SN/IP>";
     else if (cmd === "/status") out = await cmdStatus(cfg);
     else if (cmd === "/fault") out = await cmdFault(cfg);
     else if (cmd === "/cari") out = arg ? await cmdCari(cfg, arg) : "Pakai: /cari <kata>";
     else if (cmd === "/offline") out = await cmdOffline(cfg);
     else if (cmd === "/redaman") out = await cmdRedaman(cfg, arg);
-    else if (cmd[0] === "/") out = "Perintah tidak dikenal.\n\n" + HELP_TG;
+    else if (cmd[0] === "/") out = "Perintah tidak dikenal.\n\n" + helpTg(cfg);
     else out = await cmdCek(cfg, text);
   } catch (e) {
     log("ERROR", e.message);
@@ -153,7 +155,7 @@ async function main() {
     else if (what === "cari") console.log(await cmdCari(cfg, args.slice(2).join(" ")));
     else if (what === "offline") console.log(await cmdOffline(cfg));
     else if (what === "redaman") console.log(await cmdRedaman(cfg, args[2]));
-    else if (what === "help") console.log(HELP_TG);
+    else if (what === "help") console.log(helpTg(cfg));
     else if (what === "ssid") console.log(await cmdSsid(cfg, args.slice(2).join(" ")));
     else if (what === "prepare-reboot") {
       // hanya menyiapkan konfirmasi; TIDAK me-reboot
