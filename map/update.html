@@ -143,10 +143,18 @@ function send(a,c){
     .then(function(){$("res").className="res";fast=true;refresh()}).catch(function(e){sent=null;$("res").className="res er";$("res").textContent="✕ Gagal mengirim permintaan: "+e.message});
   render();
 }
-var fast=false;
+var fast=false,sysFile="";
+// detak jantung layanan = file status statis (bukan Config: tiap Config berubah, UI memunculkan banner "reload")
+function heartbeat(){
+  var p=sysFile?Promise.resolve(sysFile):get("sys.file").then(function(v){sysFile=plain(v);return sysFile});
+  return p.then(function(n){
+    if(!/^sys-[0-9a-f]{24}\.json$/.test(n))return 0;
+    return fetch("/"+n+"?_="+Date.now(),{cache:"no-store",credentials:"same-origin"}).then(function(r){return r.ok?r.json():null}).then(function(o){return o&&o.hb||0})
+  }).catch(function(){return 0});
+}
 function refresh(){
-  Promise.all([get("update.status"),get("update.hb")]).then(function(r){
-    var st=r[0]?unb64(r[0]):null;if(st){st.hb=parseInt(plain(r[1]),10)||0;S=st}else S=null;
+  Promise.all([get("update.status"),heartbeat()]).then(function(r){
+    var st=r[0]?unb64(r[0]):null;if(st){st.hb=r[1]||0;S=st}else S=null;
     if(sent&&S&&S.updated>=sent.at&&S.state==="idle")fast=false;
     render();
   }).catch(function(e){$("off").style.display="block";$("off").querySelector("p").textContent="Gagal membaca status: "+e.message});

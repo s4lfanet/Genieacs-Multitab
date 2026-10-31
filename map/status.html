@@ -130,17 +130,26 @@ function render(){
     .forEach(function(r){dl.appendChild(el("dt",{text:r[0]}));dl.appendChild(el("dd",{text:r[1]}))});
   sys.appendChild(dl);
 }
+// Data status dibaca dari file statis yang ditulis layanan updater (nama acak, dicatat di Config sys.file).
+// Sengaja bukan Config: tiap Config berubah, UI GenieACS memunculkan "Configuration has been modified, please reload".
+var sysFile="";
+function getFile(){
+  var p=sysFile?Promise.resolve(sysFile):api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "sys.file"')).then(function(r){
+    sysFile=r&&r[0]?plain(r[0].value):"";return sysFile});
+  return p.then(function(n){
+    if(!/^sys-[0-9a-f]{24}\.json$/.test(n))throw new Error("Layanan updater belum menulis status (pasang/mulai ulang genieacs-multitab-updater)");
+    return fetch("/"+n+"?_="+Date.now(),{cache:"no-store",credentials:"same-origin"})}).then(function(r){
+    if(!r.ok){sysFile="";throw new Error("File status belum ada (HTTP "+r.status+")")}return r.json()});
+}
 function refresh(){
-  api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "sys.status"')).then(function(r){
-    err=null;var v=r&&r[0]?plain(r[0].value):"";
-    if(v){var o=unb64(v);if(o&&o.services){S=o;if(v!==seenVal){seenVal=v;seenAt=Date.now()}}}
+  getFile().then(function(o){
+    err=null;
+    if(o&&o.sys&&o.sys.services){S=o.sys;if(o.hb!==seenVal){seenVal=o.hb;seenAt=Date.now()}}
     render();
   }).catch(function(e){err=e.message;render()});
 }
-// tanda "sedang dilihat": nilainya selalu berubah, layanan updater mempercepat pembaruan selama ini terjadi
-function watch(){api("PUT","/api/config/sys.watch",{_id:"sys.watch",value:"'"+Date.now()+"-"+(++seq)+"'"}).catch(function(){})}
-watch();refresh();
-setInterval(refresh,5000);setInterval(watch,20000);setInterval(function(){if(S&&!err)render()},1000);
+refresh();
+setInterval(refresh,5000);setInterval(function(){if(S&&!err)render()},1000);
 window.addEventListener("error",function(e){err=e.message||"kesalahan skrip";render()});
 </script>
 </body>

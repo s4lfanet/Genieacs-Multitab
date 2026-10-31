@@ -4,10 +4,11 @@
 // Halaman "Update" di sidebar Admin (map/update.html) berbicara dengan layanan ini lewat dua key Config:
 //   update.request  <- ditulis halaman: {"id","a":"check"|"apply"|"rollback","c":["ui","wa"]}
 //   update.status   -> ditulis layanan: versi terpasang, versi terbaru, daftar perubahan, log, hasil terakhir
-//   update.hb       -> detak jantung (halaman tahu layanan hidup)
-//   sys.watch       <- ditulis halaman Status tiap ±20 dtk selama dibuka (nilai berubah = ada yang melihat)
-//   sys.status      -> status layanan GenieACS (ui/cwmp/nbi/fs + pendukung) & sistem; hanya dibaca halaman Status.
-//                      Diperbarui tiap ±10 dtk selama ada yang melihat, selain itu tiap 5 menit.
+//   sys.file        -> nama file status (acak) di folder public GenieACS; ditulis SEKALI
+//   <public>/<sys.file>  -> status layanan GenieACS (ui/cwmp/nbi/fs + pendukung), sistem, dan detak jantung layanan;
+//                      diperbarui tiap ±20 dtk. SENGAJA bukan Config: UI GenieACS memunculkan "Configuration has been
+//                      modified, please reload" tiap isi Config berubah, jadi Config hanya ditulis untuk hal yang
+//                      memang berubah karena tindakan pengguna (update.request / update.status).
 //
 // Batasan keamanan (sengaja):
 // - Halaman TIDAK bisa mengirim perintah. Permintaan divalidasi ketat (aksi dan komponen dari daftar tetap);
@@ -96,8 +97,13 @@ try { state = Object.assign(state, JSON.parse(fs.readFileSync(ST, "utf8"))); } c
 function saveState() { try { fs.mkdirSync(C.state, { recursive: true, mode: 0o700 }); fs.writeFileSync(ST, JSON.stringify(state), { mode: 0o600 }); } catch (e) { log("simpan state gagal: " + e.message); } }
 const S = { v: VERSION, state: "idle", current: null, remote: null, behind: 0, commits: [], checkedAt: 0, lastResult: null,
   installed: { flags: [], wa: false }, canRollback: false, warn: "", log: [], updated: 0 };
+let lastPubSig = "";
 function publish() {
-  S.log = LOGS.slice(-40); S.updated = Date.now();
+  S.log = LOGS.slice(-40);
+  // tidak menulis Config bila tidak ada yang berubah (tiap tulis = banner "reload" di semua tab UI)
+  const sig = JSON.stringify(Object.assign({}, S, { updated: 0 }));
+  if (sig === lastPubSig) return;
+  lastPubSig = sig; S.updated = Date.now();
   try { cfgSet("update.status", enc(S)); } catch (e) { console.error("publish gagal: " + e.message); }
 }
 
@@ -294,15 +300,26 @@ function collectHealth() {
     let u = unitInfo(s.unit); if (u.load === "not-found" && s.alt) u = unitInfo(s.alt);
     return Object.assign({ id: s.id, label: s.label }, u);
   }).filter((x) => x.load !== "not-found");
-  let db = null;
-  try { db = JSON.parse(mongo('print(JSON.stringify({d:db.devices.count(),o:db.devices.count({_lastInform:{$gt:new Date(Date.now()-600000)}}),f:db.faults.count()}))').split("\n").pop()); } catch (e) { /* abaikan */ }
+  let db = dbCache;
+  if (!db || Date.now() - dbAt > 60000) try { dbAt = Date.now(); db = JSON.parse(mongo('print(JSON.stringify({d:db.devices.count(),o:db.devices.count({_lastInform:{$gt:new Date(Date.now()-600000)}}),f:db.faults.count()}))').split("\n").pop()); } catch (e) { /* abaikan */ }
+  dbCache = db;
   return { v: 1, at: Date.now(), host: os.hostname(), uptime: os.uptime(), load: os.loadavg(), cpus: os.cpus().length,
     mem: { total: os.totalmem(), free: os.freemem() }, disk: disk(), services: services, extra: extra, db: db };
 }
-let lastHealth = 0, lastWatchVal = null, lastWatchChange = 0;
+let lastHealth = 0, dbCache = null, dbAt = 0;
+function sysFileName() {
+  if (!/^sys-[0-9a-f]{24}\.json$/.test(state.sysFile || "")) { state.sysFile = "sys-" + require("crypto").randomBytes(12).toString("hex") + ".json"; state.sysFilePub = false; saveState(); }
+  return state.sysFile;
+}
+function writeSysFile(h) {
+  const pub = pubDir(); if (!pub) throw new Error("folder public tidak ditemukan");
+  const name = sysFileName(), dst = path.join(pub, name), tmp = dst + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify({ hb: Date.now(), sys: h }), { mode: 0o644 }); fs.renameSync(tmp, dst);
+  if (!state.sysFilePub) { cfgSet("sys.file", "'" + name + "'"); state.sysFilePub = true; saveState(); }
+}
 function healthTick(force) {
   lastHealth = Date.now();
-  try { cfgSet("sys.status", enc(collectHealth())); } catch (e) { log("status layanan gagal: " + e.message); }
+  try { writeSysFile(collectHealth()); } catch (e) { log("status layanan gagal: " + e.message); }
 }
 
 // ---------- permintaan dari halaman ----------
@@ -333,16 +350,12 @@ async function handle(req) {
   if (exitAfter) { log("updater diperbarui, restart layanan"); setTimeout(() => process.exit(0), 500); }
 }
 
-let lastHb = 0, lastAuto = 0;
+let lastAuto = 0;
 async function tick() {
   if (busy) return;
   try {
-    if (Date.now() - lastHb > 120000) { cfgSet("update.hb", "'" + Date.now() + "'"); lastHb = Date.now(); }
-    const cfg = cfgGetMany(["update.request", "sys.watch"]);
-    // halaman Status menulis nilai yang selalu berubah tiap ±20 dtk selama dibuka; dinilai dengan jam server (tahan beda jam browser)
-    if (cfg["sys.watch"] !== lastWatchVal) { lastWatchVal = cfg["sys.watch"]; lastWatchChange = Date.now(); }
-    const watching = Date.now() - lastWatchChange < 45000;
-    if (watching ? Date.now() - lastHealth >= 9000 : Date.now() - lastHealth > 300000) healthTick();
+    const cfg = cfgGetMany(["update.request"]);
+    if (Date.now() - lastHealth >= 20000) healthTick();
     const req = validRequest(dec(cfg["update.request"]));
     if (req && req.id !== state.lastId) { state.lastId = req.id; saveState(); log("permintaan: " + req.a + " (" + req.c.join(",") + ")"); await handle(req); return; }
     if (Date.now() - lastAuto > C.autoCheckHours * 3600e3) {
