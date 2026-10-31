@@ -2,6 +2,23 @@
 
 `bot/bot.js` + `bot/core.js`: Node 12+, tanpa npm. Logic inti (`core.js`) dipakai bersama dengan [bot WhatsApp](WHATSAPP-BOT.md) (`wa.js`). Bot memakai NBI GenieACS (`127.0.0.1:7557`). Pengaturannya dibaca dari **Admin → Config** (`bot.*`) dan dibaca ulang setiap loop, jadi tidak perlu restart setelah mengubah setting.
 
+## Pengaturan Bot (lewat UI)
+
+Semua pengaturan bot bisa diubah dari sidebar **Admin → Pengaturan Bot**, tanpa SSH dan tanpa restart (bot membaca ulang pengaturan tiap putaran). Halaman ini menulis ke Config GenieACS (`bot.*` dan `wabot.*`), jadi hasilnya sama dengan mengisi Admin → Config manual. Perlu login GenieACS sebagai admin.
+
+| Kartu | Isi |
+|---|---|
+| **Bot Telegram** | bot aktif, token (dari @BotFather), Chat ID yang diizinkan, penerima alert, interval alert, ambang fault, izin aksi (ubah SSID/password/reboot) |
+| **Isi Bot** | ambang redaman, batas online, jumlah baris tiap daftar, teks tambahan `/help` ([detail](#isi-bot-ambang--jumlah-daftar)) |
+| **Asisten AI** | aktif/nonaktif, provider, API key, model, base URL, batas pertanyaan per hari |
+| **Bot WhatsApp** | nomor yang diizinkan, penerima alert, izin aksi (QR di menu **Bot WA**) |
+
+Catatan:
+- Token dan API key **tidak pernah ditampilkan lagi** setelah disimpan; kolom kosong berarti "jangan ubah".
+- Kolom angka di kartu **Isi Bot** yang dikosongkan berarti kembali ke nilai bawaan (key dihapus dari Config).
+- Semua isian divalidasi dulu; bila ada yang salah, tidak ada yang disimpan dan pesan error tampil di bawah.
+- Bila halaman tampak kosong atau error, lihat [TROUBLESHOOTING.md](TROUBLESHOOTING.md#halaman-di-sidebar-pengaturan-bot-peta-bot-wa-kosong--tidak-menampilkan-apa-apa).
+
 ## Perintah
 
 | Perintah | Fungsi |
