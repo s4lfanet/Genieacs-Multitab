@@ -5,6 +5,9 @@
 //   update.request  <- ditulis halaman: {"id","a":"check"|"apply"|"rollback","c":["ui","wa"]}
 //   update.status   -> ditulis layanan: versi terpasang, versi terbaru, daftar perubahan, log, hasil terakhir
 //   update.hb       -> detak jantung (halaman tahu layanan hidup)
+//   sys.watch       <- ditulis halaman Status tiap ±20 dtk selama dibuka (nilai berubah = ada yang melihat)
+//   sys.status      -> status layanan GenieACS (ui/cwmp/nbi/fs + pendukung) & sistem; hanya dibaca halaman Status.
+//                      Diperbarui tiap ±10 dtk selama ada yang melihat, selain itu tiap 5 menit.
 //
 // Batasan keamanan (sengaja):
 // - Halaman TIDAK bisa mengirim perintah. Permintaan divalidasi ketat (aksi dan komponen dari daftar tetap);
@@ -19,6 +22,7 @@ const fs = require("fs");
 const path = require("path");
 const cp = require("child_process");
 const crypto = require("crypto");
+const os = require("os");
 
 const VERSION = 1;
 const CONF_FILE = process.env.GM_UPDATER_CONF || "/etc/genieacs-multitab/updater.conf";
@@ -58,6 +62,11 @@ function mongoBin() {
 function mongo(js) { return cp.execFileSync(mongoBin(), ["--quiet", C.db, "--eval", js], { encoding: "utf8", timeout: 20000 }).trim(); }
 function cfgGet(id) { return mongo("var d=db.config.findOne({_id:" + JSON.stringify(id) + '});print(d?String(d.value):"")').split("\n").pop().trim(); }
 function cfgSet(id, value) { mongo("db.config.updateOne({_id:" + JSON.stringify(id) + "},{$set:{value:" + JSON.stringify(value) + "}},{upsert:true})"); }
+// beberapa key Config sekaligus dalam SATU panggilan mongo (tick jalan tiap beberapa detik)
+function cfgGetMany(ids) {
+  const out = mongo("var o={};" + JSON.stringify(ids) + '.forEach(function(i){var d=db.config.findOne({_id:i});o[i]=d?String(d.value):""});print(JSON.stringify(o))');
+  try { return JSON.parse(out.split("\n").pop()); } catch (e) { return {}; }
+}
 const enc = (o) => "'" + Buffer.from(JSON.stringify(o)).toString("base64") + "'";
 function dec(v) {
   v = String(v || "").trim(); if (v.length < 2 || v[0] !== "'" || v[v.length - 1] !== "'") return null;
@@ -100,13 +109,14 @@ function pubDir() {
 function appJs(pub) {
   try { const f = fs.readdirSync(pub).filter((x) => /^app-[A-Za-z0-9]+\.js$/.test(x)); return f.length ? path.join(pub, f[0]) : ""; } catch (e) { return ""; }
 }
-const PAGES = [["peta.html", "--map"], ["bot.html", "--botpage"], ["wa.html", "--wapage"]];
+const PAGES = [["peta.html", "--map"], ["bot.html", "--botpage"], ["wa.html", "--wapage"], ["status.html", "--status"]];
 function installedFlags() {
   const pub = pubDir(), js = appJs(pub), f = [];
   if (!pub || !js) return f;
   PAGES.forEach((p) => { if (fs.existsSync(path.join(pub, p[0]))) f.push(p[1]); });
   try { if (fs.readFileSync(js, "utf8").indexOf("acs-theme-btn") >= 0) f.push("--theme"); } catch (e) { /* abaikan */ }
   f.push("--update"); // layanan ini ada, jadi halaman Update selalu ikut
+  if (f.indexOf("--status") < 0) f.push("--status"); // dan halaman Status (datanya dari layanan ini)
   return f;
 }
 function waFiles() { return C.botdir && fs.existsSync(path.join(C.botdir, "wa.js")); }
@@ -231,6 +241,70 @@ async function rollback() {
   return true;
 }
 
+// ---------- status layanan GenieACS (untuk halaman Status) ----------
+const SVC = [
+  { id: "ui", label: "UI", unit: "genieacs-ui", port: 3000, url: "/status", role: "Antarmuka web GenieACS", okCodes: ["200"] },
+  { id: "cwmp", label: "CWMP", unit: "genieacs-cwmp", port: 7547, url: "/", role: "Server TR-069: tempat ONT melakukan inform", anyHttp: true },
+  { id: "nbi", label: "NBI", unit: "genieacs-nbi", port: 7557, url: "/devices/?limit=1&projection=_id", role: "API untuk bot dan integrasi", okCodes: ["200"] },
+  { id: "fs", label: "FS", unit: "genieacs-fs", port: 7567, url: "/", role: "File server firmware & konfigurasi", anyHttp: true }
+];
+const EXTRA = [
+  { id: "mongod", label: "MongoDB", unit: "mongod", alt: "mongodb" },
+  { id: "bot", label: "Bot Telegram", unit: "genieacs-bot" },
+  { id: "wabot", label: "Bot WhatsApp", unit: "genieacs-wa-bot" },
+  { id: "updater", label: "Updater", unit: "genieacs-multitab-updater" }
+];
+function unitInfo(unit) {
+  const r = { unit: unit, load: "", active: "", sub: "", pid: 0, up: null, mem: null, restarts: null };
+  try {
+    cp.execFileSync("systemctl", ["show", unit, "-p", "LoadState,ActiveState,SubState,MainPID,MemoryCurrent,NRestarts", "--no-pager"], { encoding: "utf8", timeout: 5000 })
+      .split("\n").forEach((l) => {
+        const i = l.indexOf("="); if (i < 0) return; const k = l.slice(0, i), v = l.slice(i + 1);
+        if (k === "LoadState") r.load = v; else if (k === "ActiveState") r.active = v; else if (k === "SubState") r.sub = v;
+        else if (k === "MainPID") r.pid = parseInt(v, 10) || 0;
+        else if (k === "MemoryCurrent") r.mem = /^\d+$/.test(v) && v !== "18446744073709551615" ? parseInt(v, 10) : null;
+        else if (k === "NRestarts") r.restarts = /^\d+$/.test(v) ? parseInt(v, 10) : null;
+      });
+    if (r.pid) { // lama berjalan (detik) dari lama proses (etimes): tidak bergantung zona waktu maupun beda jam browser
+      const e = parseInt(cp.execFileSync("ps", ["-o", "etimes=", "-p", String(r.pid)], { encoding: "utf8", timeout: 3000 }).trim(), 10);
+      if (e >= 0) r.up = e;
+    }
+  } catch (e) { r.load = r.load || "error"; }
+  return r;
+}
+function probe(port, url) {
+  const t0 = Date.now(); let code = "";
+  try { code = cp.execFileSync("curl", ["-s", "-o", "/dev/null", "-m", "4", "-w", "%{http_code}", "http://127.0.0.1:" + port + url], { encoding: "utf8", timeout: 6000 }).trim(); } catch (e) { /* tak terjangkau */ }
+  return { code: code, ms: Date.now() - t0 };
+}
+function disk() {
+  try {
+    const l = cp.execFileSync("df", ["-Pk", "/"], { encoding: "utf8", timeout: 4000 }).trim().split("\n").pop().split(/\s+/);
+    return { total: parseInt(l[1], 10) * 1024, free: parseInt(l[3], 10) * 1024 };
+  } catch (e) { return null; }
+}
+function collectHealth() {
+  const ports = C.ports || {};
+  const services = SVC.map((s) => {
+    const u = unitInfo(C.units && C.units[s.id] || s.unit), port = ports[s.id] || s.port, p = probe(port, s.url);
+    const ok = s.anyHttp ? !!p.code && p.code !== "000" : s.okCodes.indexOf(p.code) >= 0;
+    return Object.assign({ id: s.id, label: s.label, role: s.role, port: port, probe: { code: p.code, ms: p.ms, ok: ok } }, u);
+  });
+  const extra = EXTRA.map((s) => {
+    let u = unitInfo(s.unit); if (u.load === "not-found" && s.alt) u = unitInfo(s.alt);
+    return Object.assign({ id: s.id, label: s.label }, u);
+  }).filter((x) => x.load !== "not-found");
+  let db = null;
+  try { db = JSON.parse(mongo('print(JSON.stringify({d:db.devices.count(),o:db.devices.count({_lastInform:{$gt:new Date(Date.now()-600000)}}),f:db.faults.count()}))').split("\n").pop()); } catch (e) { /* abaikan */ }
+  return { v: 1, at: Date.now(), host: os.hostname(), uptime: os.uptime(), load: os.loadavg(), cpus: os.cpus().length,
+    mem: { total: os.totalmem(), free: os.freemem() }, disk: disk(), services: services, extra: extra, db: db };
+}
+let lastHealth = 0, lastWatchVal = null, lastWatchChange = 0;
+function healthTick(force) {
+  lastHealth = Date.now();
+  try { cfgSet("sys.status", enc(collectHealth())); } catch (e) { log("status layanan gagal: " + e.message); }
+}
+
 // ---------- permintaan dari halaman ----------
 function validRequest(r) {
   if (!r || typeof r !== "object") return null;
@@ -264,7 +338,12 @@ async function tick() {
   if (busy) return;
   try {
     if (Date.now() - lastHb > 120000) { cfgSet("update.hb", "'" + Date.now() + "'"); lastHb = Date.now(); }
-    const req = validRequest(dec(cfgGet("update.request")));
+    const cfg = cfgGetMany(["update.request", "sys.watch"]);
+    // halaman Status menulis nilai yang selalu berubah tiap ±20 dtk selama dibuka; dinilai dengan jam server (tahan beda jam browser)
+    if (cfg["sys.watch"] !== lastWatchVal) { lastWatchVal = cfg["sys.watch"]; lastWatchChange = Date.now(); }
+    const watching = Date.now() - lastWatchChange < 45000;
+    if (watching ? Date.now() - lastHealth >= 9000 : Date.now() - lastHealth > 300000) healthTick();
+    const req = validRequest(dec(cfg["update.request"]));
     if (req && req.id !== state.lastId) { state.lastId = req.id; saveState(); log("permintaan: " + req.a + " (" + req.c.join(",") + ")"); await handle(req); return; }
     if (Date.now() - lastAuto > C.autoCheckHours * 3600e3) {
       lastAuto = Date.now(); ensureCheckout(); check(); publish();
@@ -279,8 +358,9 @@ async function main() {
   // permintaan yang sudah ada saat start dianggap sudah ditangani (jangan dijalankan ulang setelah restart/mati)
   try { const r = validRequest(dec(cfgGet("update.request"))); if (r) { state.lastId = r.id; saveState(); } } catch (e) { /* belum ada */ }
   try { check(); S.canRollback = fs.existsSync(path.join(C.state, "prev", "meta.json")); } catch (e) { log("check awal gagal: " + e.message); refreshInstalled(); }
-  lastAuto = Date.now(); publish();
+  lastAuto = Date.now(); publish(); healthTick();
   setInterval(() => { tick(); }, C.pollSeconds * 1000);
 }
+if (process.argv[2] === "--selftest-health") { console.log(JSON.stringify(collectHealth(), null, 1)); process.exit(0); }
 if (process.argv[2] === "--selftest") { console.log(JSON.stringify({ conf: C, installed: installedFlags(), wa: !!waFiles() })); process.exit(0); }
 main().catch((e) => { console.error("FATAL " + (e.stack || e.message)); process.exit(1); });

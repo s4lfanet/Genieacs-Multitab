@@ -57,7 +57,7 @@ code{font-family:ui-monospace,Consolas,monospace;background:var(--soft);border-r
         <div class="ver"><div class="k">Terpasang</div><div class="sha" id="cs">-</div><div class="d" id="cd"></div><div class="s" id="csub"></div></div>
         <div class="ver"><div class="k">Terbaru di GitHub</div><div class="sha" id="rs">-</div><div class="d" id="rd"></div><div class="s" id="rsub"></div></div>
       </div>
-      <div class="row"><button class="btn" id="check">Periksa pembaruan</button><span class="m" id="when"></span></div>
+      <div class="row"><button class="btn" id="check">Periksa pembaruan</button><button class="btn" id="reinstall" title="Pasang ulang menu, tema, dan halaman dari versi yang terpasang (mis. setelah GenieACS di-upgrade, atau agar menu baru muncul)">Pasang ulang tampilan</button><span class="m" id="when"></span></div>
     </div>
 
     <div class="card" id="upd" style="display:none">
@@ -132,7 +132,7 @@ function render(){
   var lg=$("log");if(S.log&&S.log.length){var atEnd=lg.scrollTop+lg.clientHeight>=lg.scrollHeight-8;lg.textContent=S.log.join("\n");if(atEnd)lg.scrollTop=lg.scrollHeight}
   $("rb").style.display=S.canRollback?"inline-block":"none";
   var waiting=sent&&Date.now()-sent.at<45000&&(!S.updated||S.updated<sent.at);
-  ["check","apply","rb"].forEach(function(id){$(id).disabled=busy||!!waiting||!!S.warn||!alive});
+  ["check","apply","rb","reinstall"].forEach(function(id){$(id).disabled=busy||!!waiting||!!S.warn||!alive});
   $("apply").disabled=$("apply").disabled||!(S.behind>0);
   if(S.warn){$("res").className="res er";$("res").textContent="✕ "+S.warn}
 }
@@ -152,6 +152,7 @@ function refresh(){
   }).catch(function(e){$("off").style.display="block";$("off").querySelector("p").textContent="Gagal membaca status: "+e.message});
 }
 $("check").onclick=function(){send("check")};
+$("reinstall").onclick=function(){if(confirm("Pasang ulang menu, tema, dan halaman dari versi yang terpasang sekarang?\n\nBerguna setelah GenieACS di-upgrade (patch tampilan hilang) atau agar menu/halaman baru muncul. Kalau gagal, kondisi sebelumnya otomatis dikembalikan."))send("apply",["ui"])};
 $("apply").onclick=function(){
   var c=["ui"];if($("wa").checked&&$("waopt").style.display!=="none")c.push("wa");
   if(confirm("Pasang pembaruan sekarang?\n\nMenu/tema/halaman akan diganti"+(c.length>1?" dan bot WA di-restart":"")+". Kalau gagal, versi sebelumnya otomatis dikembalikan."))send("apply",c)};

@@ -4,8 +4,9 @@
 //             "Bot" (iframe)  -> halaman bot WA di port lain (opsi lama, default port 3010)
 //   PELANGGAN "Peta", "ODP"   -> /peta.html di GenieACS sendiri (port yang sama, tanpa service lain; lihat docs/MAP.md)
 //   TAMPILAN  "Tema"          -> pemilih tema (9 tema, terang & gelap); tombol melayang di pojok kanan bawah juga ada
+//   SISTEM    "Status"        -> /status.html: status layanan UI/CWMP/NBI/FS + pendukung (data dari layanan updater)
 //   SISTEM    "Update"        -> /update.html: periksa & pasang pembaruan dari GitHub lewat layanan updater (docs/UPDATE.md)
-// Pakai: node ui-admin-menu.js <file app-*.js asli> <file keluaran> <portBot|0> [peta|0] [botpage|0] [tema|0] [wapage|0] [update|0]
+// Pakai: node ui-admin-menu.js <file app-*.js asli> <file keluaran> <portBot|0> [peta|0] [botpage|0] [tema|0] [wapage|0] [update|0] [status|0]
 // portBot 0 = tanpa menu Bot (iframe port); argumen ke-4..8 selain 0/kosong = pasang Peta&ODP / halaman Bot / tema / Bot WA / Update.
 // Kode tema ada di theme-runtime.js (dijalankan di browser, disisipkan apa adanya ke bundle).
 // Diuji pada GenieACS 1.2.13 (app-FOJWPRV7.js). Setiap titik sisip harus ditemukan TEPAT SEKALI,
@@ -13,14 +14,15 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
-const [src, out, portArg, mapArg, botPageArg, themeArg, waPageArg, updArg] = process.argv.slice(2);
+const [src, out, portArg, mapArg, botPageArg, themeArg, waPageArg, updArg, statArg] = process.argv.slice(2);
+const withStatus = !!(parseInt(statArg, 10) || 0);
 const withUpdate = !!(parseInt(updArg, 10) || 0);
 const withWaPage = !!(parseInt(waPageArg, 10) || 0);
 const withBotPage = !!(parseInt(botPageArg, 10) || 0);
 const withTheme = !!(parseInt(themeArg, 10) || 0);
 const port = portArg === undefined ? 3010 : parseInt(portArg, 10) || 0;
 const withMap = !!(parseInt(mapArg, 10) || 0);
-if (!port && !withMap && !withBotPage && !withTheme && !withWaPage && !withUpdate) { console.error("tidak ada menu yang diminta"); process.exit(1); }
+if (!port && !withMap && !withBotPage && !withTheme && !withWaPage && !withUpdate && !withStatus) { console.error("tidak ada menu yang diminta"); process.exit(1); }
 
 const pages = [];     // key halaman (dianggap bagian Admin)
 const items = [];     // potongan JS yang mendorong <li> ke sidebar
@@ -50,10 +52,9 @@ if (withMap) {
   menu("peta", "Peta", "Peta", '"/peta.html"');
   menu("odp", "ODP", "ODP", '"/peta.html#odp"');
 }
-if (withUpdate) {
-  sep("Sistem");
-  menu("update", "Update", "Update", '"/update.html"');
-}
+if (withUpdate || withStatus) sep("Sistem");
+if (withStatus) menu("status", "Status", "Status", '"/status.html"');
+if (withUpdate) menu("update", "Update", "Update", '"/update.html"');
 if (withTheme) {
   // bukan halaman: membuka pemilih tema. Nama tema aktif ditampilkan di kanan (digambar ulang saat tema berganti)
   sep("Tampilan");
@@ -93,4 +94,4 @@ for (const [a, b] of patches) {
 }
 const THEME = withTheme ? fs.readFileSync(path.join(__dirname, "theme-runtime.js"), "utf8").replace(/\r/g, "") + "\n" : "";
 fs.writeFileSync(out, MARK + "\n" + THEME + s);
-console.log("patch OK (bot:" + (port || "-") + " peta:" + (withMap ? "ya" : "-") + " botpage:" + (withBotPage ? "ya" : "-") + " tema:" + (withTheme ? "ya" : "-") + " wa:" + (withWaPage ? "ya" : "-") + " update:" + (withUpdate ? "ya" : "-") + ")");
+console.log("patch OK (bot:" + (port || "-") + " peta:" + (withMap ? "ya" : "-") + " botpage:" + (withBotPage ? "ya" : "-") + " tema:" + (withTheme ? "ya" : "-") + " wa:" + (withWaPage ? "ya" : "-") + " update:" + (withUpdate ? "ya" : "-") + " status:" + (withStatus ? "ya" : "-") + ")");

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="acs-page" content="status">
+<title>Status Layanan</title>
+<style>
+:root{--bg:#fff;--surface:#fff;--fg:#002f2f;--mut:#667078;--bd:#ebe0bf;--pri:#046380;--soft:#f2ebd5;--on:#fff;--ok:#16803c;--bad:#c62828;--warn:#b45309}
+*{box-sizing:border-box}html,body{margin:0}
+body{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);padding:18px 22px 32px}
+.wrap{max-width:980px}
+h1{font-size:20px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 14px}
+.banner{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;font-weight:700;margin-bottom:16px;background:var(--soft);color:var(--mut)}
+.banner i{width:12px;height:12px;border-radius:50%;background:currentColor;flex:none}
+.banner.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.banner.warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+.banner.bad{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.banner small{margin-left:auto;font-weight:500;color:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:16px}
+.card h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut);margin:0 0 12px}
+.svc{position:relative;overflow:hidden}
+.svc::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--mut)}
+.svc.ok::before{background:var(--ok)}.svc.warn::before{background:var(--warn)}.svc.bad::before{background:var(--bad)}
+.svc .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.svc .nm{font-size:20px;font-weight:800;letter-spacing:.02em}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:700;background:var(--soft);color:var(--mut);white-space:nowrap}
+.chip i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok)}.chip.warn{color:var(--warn)}.chip.bad{color:var(--bad)}
+.svc .role{color:var(--mut);font-size:12px;margin:2px 0 10px;min-height:32px}
+dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px}dt{color:var(--mut)}dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+table{width:100%;border-collapse:collapse}td,th{padding:7px 4px;border-bottom:1px solid var(--bd);text-align:left}tr:last-child td{border-bottom:0}th{color:var(--mut);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+.bar{height:8px;background:var(--soft);border-radius:4px;overflow:hidden;margin:4px 0 10px}.bar i{display:block;height:100%;background:var(--pri)}.bar i.warn{background:var(--warn)}.bar i.bad{background:var(--bad)}
+.m{color:var(--mut);font-size:12px}
+code{font-family:ui-monospace,Consolas,monospace;background:var(--soft);border-radius:6px;padding:2px 6px}
+.err{border:1px solid var(--bad);background:color-mix(in srgb,var(--bad) 9%,transparent);border-radius:14px;padding:16px 18px}.err b{color:var(--bad)}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Status Layanan</h1>
+  <p class="sub">Kondisi UI, CWMP, NBI, dan FS GenieACS beserta layanan pendukung. Diperbarui otomatis selama halaman ini dibuka.</p>
+  <div id="off" class="card" style="display:none"></div>
+  <div id="main" style="display:none">
+    <div class="banner" id="banner"><i></i><span id="btxt">Memuat…</span><small id="age"></small></div>
+    <div class="grid" id="svcs"></div>
+    <div class="two">
+      <div class="card"><h2>Layanan pendukung</h2><table><thead><tr><th>Layanan</th><th>Status</th><th class="r">Memori</th><th class="r">Berjalan</th></tr></thead><tbody id="extra"></tbody></table></div>
+      <div class="card"><h2>Server</h2><div id="sys"></div></div>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+(function(){
+  var M={"--bg":"--acs-bg","--surface":"--acs-surface","--fg":"--acs-text","--mut":"--acs-muted","--bd":"--acs-border","--pri":"--acs-accent","--soft":"--acs-soft","--on":"--acs-on-accent","--ok":"--acs-ok","--bad":"--acs-bad","--warn":"--acs-warn"};
+  function ap(){var r=document.documentElement;try{var p=parent.document.documentElement,cs=parent.getComputedStyle(p);
+    Object.keys(M).forEach(function(k){var v=cs.getPropertyValue(M[k]).trim();if(v)r.style.setProperty(k,v)});
+    r.classList.toggle("dark",p.classList.contains("acs-dark"))}catch(e){}}
+  ap();try{new MutationObserver(ap).observe(parent.document.documentElement,{attributes:true})}catch(e){}
+})();
+function $(i){return document.getElementById(i)}
+function el(tag,props,kids){var e=document.createElement(tag);Object.keys(props||{}).forEach(function(k){if(k==="text")e.textContent=props[k];else e.setAttribute(k,props[k])});(kids||[]).forEach(function(c){e.appendChild(c)});return e}
+function api(method,path,body){
+  return fetch(path,{method:method,credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.text().then(function(t){
+      if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
+      if(!r.ok)throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+      return t?JSON.parse(t):null})});
+}
+function plain(v){v=String(v==null?"":v).trim();return v.length>=2&&v[0]==="'"&&v[v.length-1]==="'"?v.slice(1,-1):v}
+function unb64(s){try{return JSON.parse(decodeURIComponent(escape(atob(s))))}catch(e){return null}}
+function bytes(n){if(n==null)return "-";var u=["B","KB","MB","GB","TB"],i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return (i>1?n.toFixed(1):Math.round(n))+" "+u[i]}
+function dur(ms){if(ms==null)return "-";var s=Math.max(0,Math.round(ms/1000)),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?d+" hr "+h+" j":h?h+" j "+m+" m":m?m+" m":s+" dtk"}
+
+// ---- penilaian ----
+function judge(s){
+  if(s.active!=="active")return {k:"bad",t:s.active==="failed"?"Gagal":"Mati"};
+  if(s.probe&&!s.probe.ok)return {k:"warn",t:"Tidak merespons"};
+  return {k:"ok",t:"Berjalan"};
+}
+function chip(j){return el("span",{"class":"chip "+j.k},[el("i"),document.createTextNode(j.t)])}
+
+var S=null,seenAt=0,seenVal=null,seq=0,err=null;
+function render(){
+  var off=$("off"),main=$("main");
+  if(err){main.style.display="none";off.style.display="block";off.className="err";off.textContent="";
+    off.appendChild(el("b",{text:"Status tidak bisa dimuat"}));off.appendChild(el("p",{text:err}));
+    off.appendChild(el("p",{"class":"m",text:"Login ke GenieACS sebagai admin dengan izin Config. Di server: bash scripts/diagnose.sh"}));return}
+  if(!S){main.style.display="none";off.style.display="block";off.className="card";off.textContent="";
+    off.appendChild(el("h2",{text:"Menunggu data dari layanan updater…"}));
+    off.appendChild(el("p",{text:"Data status dikumpulkan oleh layanan genieacs-multitab-updater di server. Kalau tidak muncul dalam ±30 detik, layanan itu belum terpasang atau tidak berjalan."}));
+    off.appendChild(el("p",{"class":"m"},[document.createTextNode("Di server, jalankan sekali: "),el("code",{text:"bash scripts/setup-updater.sh"}),document.createTextNode(" (lihat docs/UPDATE.md).")]));return}
+  off.style.display="none";main.style.display="block";
+  var stale=Date.now()-seenAt>60000;
+  var all=S.services.map(judge),bad=all.filter(function(j){return j.k==="bad"}).length,warn=all.filter(function(j){return j.k==="warn"}).length;
+  var b=$("banner"),t=$("btxt");
+  if(stale){b.className="banner warn";t.textContent="Data tidak diperbarui lagi. Layanan updater mungkin berhenti."}
+  else if(bad){b.className="banner bad";t.textContent=bad+" layanan inti mati"}
+  else if(warn){b.className="banner warn";t.textContent=warn+" layanan tidak merespons"}
+  else{b.className="banner ok";t.textContent="Semua layanan inti berjalan normal"}
+  $("age").textContent="diperbarui "+dur(Date.now()-seenAt)+" lalu";
+  // kartu layanan inti
+  var g=$("svcs");g.textContent="";
+  S.services.forEach(function(s,i){
+    var j=all[i],c=el("div",{"class":"card svc "+j.k});
+    c.appendChild(el("div",{"class":"top"},[el("span",{"class":"nm",text:s.label}),chip(j)]));
+    c.appendChild(el("div",{"class":"role",text:s.role}));
+    var rows=[["Port",String(s.port)],["Respons",s.probe&&s.probe.code?"HTTP "+s.probe.code+" · "+s.probe.ms+" ms":"tidak ada"],["Berjalan",s.up!=null?dur(s.up*1000+(Date.now()-seenAt)):"-"],["Memori",bytes(s.mem)],["PID",s.pid?String(s.pid):"-"],["Restart",s.restarts==null?"-":String(s.restarts)]];
+    var dl=el("dl");rows.forEach(function(r){dl.appendChild(el("dt",{text:r[0]}));dl.appendChild(el("dd",{text:r[1]}))});c.appendChild(dl);g.appendChild(c);
+  });
+  // pendukung
+  var ex=$("extra");ex.textContent="";
+  if(!S.extra.length)ex.appendChild(el("tr",{},[el("td",{"class":"m",colspan:"4",text:"Tidak ada."})]));
+  S.extra.forEach(function(s){
+    var j=s.active==="active"?{k:"ok",t:"Berjalan"}:s.active==="failed"?{k:"bad",t:"Gagal"}:{k:"warn",t:s.active||"?"};
+    ex.appendChild(el("tr",{},[el("td",{text:s.label}),el("td",{},[chip(j)]),el("td",{"class":"r",text:bytes(s.mem)}),el("td",{"class":"r",text:s.up!=null?dur(s.up*1000+(Date.now()-seenAt)):"-"})]));
+  });
+  // server
+  var sys=$("sys");sys.textContent="";
+  function bar(label,used,total,txt){var p=total?Math.min(100,Math.round(used*100/total)):0;sys.appendChild(el("div",{},[el("div",{"class":"m",text:label+" · "+txt}),el("div",{"class":"bar"},[el("i",{"class":p>=90?"bad":p>=75?"warn":"",style:"width:"+p+"%"})])]))}
+  if(S.mem)bar("RAM",S.mem.total-S.mem.free,S.mem.total,bytes(S.mem.total-S.mem.free)+" dari "+bytes(S.mem.total));
+  if(S.disk)bar("Disk /",S.disk.total-S.disk.free,S.disk.total,bytes(S.disk.total-S.disk.free)+" dari "+bytes(S.disk.total));
+  var dl=el("dl");
+  [["Host",S.host],["Server menyala",dur(S.uptime*1000)],["Beban (1/5/15 mnt)",(S.load||[]).map(function(x){return x.toFixed(2)}).join(" / ")+" · "+S.cpus+" CPU"],
+   ["ONT terdaftar",S.db?String(S.db.d):"-"],["ONT online (10 mnt)",S.db?S.db.o+" ("+(S.db.d?Math.round(S.db.o*100/S.db.d):0)+"%)":"-"],["Fault aktif",S.db?String(S.db.f):"-"]]
+    .forEach(function(r){dl.appendChild(el("dt",{text:r[0]}));dl.appendChild(el("dd",{text:r[1]}))});
+  sys.appendChild(dl);
+}
+function refresh(){
+  api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "sys.status"')).then(function(r){
+    err=null;var v=r&&r[0]?plain(r[0].value):"";
+    if(v){var o=unb64(v);if(o&&o.services){S=o;if(v!==seenVal){seenVal=v;seenAt=Date.now()}}}
+    render();
+  }).catch(function(e){err=e.message;render()});
+}
+// tanda "sedang dilihat": nilainya selalu berubah, layanan updater mempercepat pembaruan selama ini terjadi
+function watch(){api("PUT","/api/config/sys.watch",{_id:"sys.watch",value:"'"+Date.now()+"-"+(++seq)+"'"}).catch(function(){})}
+watch();refresh();
+setInterval(refresh,5000);setInterval(watch,20000);setInterval(function(){if(S&&!err)render()},1000);
+window.addEventListener("error",function(e){err=e.message||"kesalahan skrip";render()});
+</script>
+</body>
+</html>

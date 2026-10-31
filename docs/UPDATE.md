@@ -1,6 +1,6 @@
 # Update dari sidebar Admin
 
-Halaman **Admin → Update** memeriksa dan memasang pembaruan Genieacs-Multitab dari GitHub tanpa SSH: lihat versi terpasang dan terbaru, daftar perubahan, pasang dengan satu klik, dan kembalikan versi sebelumnya kalau perlu.
+Halaman **Admin → Update** (dan **Admin → Status**, lihat bagian bawah) memeriksa dan memasang pembaruan Genieacs-Multitab dari GitHub tanpa SSH: lihat versi terpasang dan terbaru, daftar perubahan, pasang dengan satu klik, dan kembalikan versi sebelumnya kalau perlu.
 
 ## Pasang (sekali, di server)
 
@@ -31,6 +31,14 @@ Layanan ini berjalan sebagai **root**, jadi batasannya sengaja ketat:
 - Permintaan yang sudah ada saat layanan start dianggap sudah ditangani (tidak dijalankan ulang).
 
 Yang perlu diterima: siapa pun yang punya izin menulis Config di GenieACS (admin) bisa memicu update, dan isi update adalah isi branch `main` di repo yang diset. Artinya **akses push ke repo itu setara akses root di server**. Gunakan repo milik Anda sendiri dan amankan akun GitHub-nya (2FA). Kalau tidak mau risiko itu, jangan pasang layanan ini dan update lewat `git pull` + `bash scripts/ui-admin-menu.sh --all` secara manual.
+
+## Halaman Status layanan
+
+Halaman **Admin → Sistem → Status** menampilkan kondisi **UI (3000), CWMP (7547), NBI (7557), dan FS (7567)**: berjalan/mati/tidak merespons, respons HTTP dan latensi, lama berjalan, memori, PID, dan jumlah restart. Di bawahnya layanan pendukung (MongoDB, bot Telegram, bot WA, updater) dan kondisi server (RAM, disk, beban, jumlah ONT online, fault).
+
+Browser hanya bisa menjangkau port UI, dan status systemd tidak bisa dibaca dari browser, jadi datanya dikumpulkan oleh layanan updater yang sama (`systemctl show` + probe HTTP lokal ke tiap port) lalu diterbitkan ke Config `sys.status`. Agar hemat, ia diperbarui tiap ±10 detik **hanya selama halaman Status dibuka** (halaman menulis tanda `sys.watch` tiap ±20 detik); selain itu tiap 5 menit. Halaman ini hanya **membaca** dan tidak punya tombol restart.
+
+Kriteria: **Berjalan** = unit `active` dan probe menjawab (UI/NBI harus HTTP 200; CWMP/FS cukup menjawab HTTP apa pun karena menolak GET dengan 405/404). **Tidak merespons** = unit aktif tetapi probe gagal. **Mati/Gagal** = unit tidak aktif. Port bisa diubah lewat `ports` di `updater.conf`.
 
 ## Hapus
 
