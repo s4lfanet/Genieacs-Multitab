@@ -259,7 +259,9 @@ const EXTRA = [
   { id: "mongod", label: "MongoDB", unit: "mongod", alt: "mongodb" },
   { id: "bot", label: "Bot Telegram", unit: "genieacs-bot" },
   { id: "wabot", label: "Bot WhatsApp", unit: "genieacs-wa-bot" },
-  { id: "updater", label: "Updater", unit: "genieacs-multitab-updater" }
+  { id: "updater", label: "Updater", unit: "genieacs-multitab-updater" },
+  { id: "tunnel", label: "Cloudflare Tunnel", unit: "cloudflared" },
+  { id: "nbiproxy", label: "Proxy NBI (tunnel)", unit: "genieacs-nbi-proxy" }
 ];
 function unitInfo(unit) {
   const r = { unit: unit, load: "", active: "", sub: "", pid: 0, up: null, mem: null, restarts: null };
