@@ -219,7 +219,12 @@ async function apply(comps) {
   log("update " + S.current.short + " -> " + S.remote.short + " (komponen: " + comps.join(", ") + ")");
   const meta = snapshot(comps);
   try {
-    if (before !== target) git(["merge", "--ff-only", "origin/" + C.branch]);
+    if (before !== target) {
+      // checkout ini hanya cermin repo (tanpa perubahan lokal, sudah dicek di atas). Bila riwayat di GitHub ditulis ulang
+      // (force-push), merge ff-only gagal; ikuti saja remote.
+      try { git(["merge", "--ff-only", "origin/" + C.branch]); }
+      catch (e) { log("riwayat remote berubah (bukan fast-forward); mengikuti origin/" + C.branch); git(["reset", "--hard", "origin/" + C.branch]); }
+    }
     runUi();
     if (comps.indexOf("wa") >= 0) await updateWa();
     if (!health()) throw new Error("UI GenieACS tidak sehat sesudah update");
