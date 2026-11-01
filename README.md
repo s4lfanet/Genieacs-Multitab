@@ -56,6 +56,7 @@ Panduan lengkap ada di **[docs/INSTALL.md](docs/INSTALL.md)**.
 | [docs/PROVISIONS-VP.md](docs/PROVISIONS-VP.md) | Daftar Virtual Parameter & provision, preset opsional, catatan per merk |
 | [docs/BRANDING.md](docs/BRANDING.md) | Ganti logo, judul, warna header |
 | [docs/MAP.md](docs/MAP.md) | Peta pelanggan & ODP di sidebar Admin (opsional, tanpa service/port tambahan) |
+| [docs/BRIDGE-ZTE.md](docs/BRIDGE-ZTE.md) | Bridge ZTE F679D/F670L (WAN bridge + LAN-bind) dari sidebar Admin lewat TR-069, karena web admin ONT-nya tidak punya menu bridge |
 | [docs/TEMA.md](docs/TEMA.md) | 9 tema tampilan (terang & gelap), cara kerja, dan cara menambah tema |
 | [docs/UPDATE.md](docs/UPDATE.md) | Update dari sidebar Admin (periksa, pasang, rollback tanpa SSH) dan halaman Status layanan UI/CWMP/NBI/FS (layanan updater + model keamanan) |
 | [scripts/diagnose.sh](scripts/diagnose.sh) | Audit baca-saja server: layanan, file tampilan, connection request, preset berbahaya (jalankan lalu kirim hasilnya bila ada masalah) |

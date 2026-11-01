@@ -115,7 +115,7 @@ function pubDir() {
 function appJs(pub) {
   try { const f = fs.readdirSync(pub).filter((x) => /^app-[A-Za-z0-9]+\.js$/.test(x)); return f.length ? path.join(pub, f[0]) : ""; } catch (e) { return ""; }
 }
-const PAGES = [["peta.html", "--map"], ["bot.html", "--botpage"], ["wa.html", "--wapage"], ["status.html", "--status"]];
+const PAGES = [["peta.html", "--map"], ["bot.html", "--botpage"], ["wa.html", "--wapage"], ["status.html", "--status"], ["bridge.html", "--bridge"]];
 function installedFlags() {
   const pub = pubDir(), js = appJs(pub), f = [];
   if (!pub || !js) return f;
@@ -123,6 +123,7 @@ function installedFlags() {
   try { if (fs.readFileSync(js, "utf8").indexOf("acs-theme-btn") >= 0) f.push("--theme"); } catch (e) { /* abaikan */ }
   f.push("--update"); // layanan ini ada, jadi halaman Update selalu ikut
   if (f.indexOf("--status") < 0) f.push("--status"); // dan halaman Status (datanya dari layanan ini)
+  if (f.indexOf("--bridge") < 0) f.push("--bridge"); // dan halaman Bridge (hanya bekerja bila ada ONT ZTE; tidak mengubah apa pun sendiri)
   return f;
 }
 function waFiles() { return C.botdir && fs.existsSync(path.join(C.botdir, "wa.js")); }
