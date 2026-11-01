@@ -4,9 +4,10 @@
 //             "Bot" (iframe)  -> halaman bot WA di port lain (opsi lama, default port 3010)
 //   PELANGGAN "Peta", "ODP"   -> /peta.html di GenieACS sendiri (port yang sama, tanpa service lain; lihat docs/MAP.md)
 //   TAMPILAN  "Tema"          -> pemilih tema (9 tema, terang & gelap); tombol melayang di pojok kanan bawah juga ada
+//   JARINGAN  "Bridge"        -> /bridge.html: buat WAN bridge + LAN-bind pada ZTE F679D/F670L lewat TR-069 (docs/BRIDGE-ZTE.md)
 //   SISTEM    "Status"        -> /status.html: status layanan UI/CWMP/NBI/FS + pendukung (data dari layanan updater)
 //   SISTEM    "Update"        -> /update.html: periksa & pasang pembaruan dari GitHub lewat layanan updater (docs/UPDATE.md)
-// Pakai: node ui-admin-menu.js <file app-*.js asli> <file keluaran> <portBot|0> [peta|0] [botpage|0] [tema|0] [wapage|0] [update|0] [status|0]
+// Pakai: node ui-admin-menu.js <file app-*.js asli> <file keluaran> <portBot|0> [peta|0] [botpage|0] [tema|0] [wapage|0] [update|0] [status|0] [bridge|0]
 // portBot 0 = tanpa menu Bot (iframe port); argumen ke-4..8 selain 0/kosong = pasang Peta&ODP / halaman Bot / tema / Bot WA / Update.
 // Kode tema ada di theme-runtime.js (dijalankan di browser, disisipkan apa adanya ke bundle).
 // Diuji pada GenieACS 1.2.13 (app-FOJWPRV7.js). Setiap titik sisip harus ditemukan TEPAT SEKALI,
@@ -14,7 +15,8 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
-const [src, out, portArg, mapArg, botPageArg, themeArg, waPageArg, updArg, statArg] = process.argv.slice(2);
+const [src, out, portArg, mapArg, botPageArg, themeArg, waPageArg, updArg, statArg, bridgeArg] = process.argv.slice(2);
+const withBridge = !!(parseInt(bridgeArg, 10) || 0);
 const withStatus = !!(parseInt(statArg, 10) || 0);
 const withUpdate = !!(parseInt(updArg, 10) || 0);
 const withWaPage = !!(parseInt(waPageArg, 10) || 0);
@@ -51,6 +53,10 @@ if (withMap) {
   sep("Pelanggan");
   menu("peta", "Peta", "Peta", '"/peta.html"');
   menu("odp", "ODP", "ODP", '"/peta.html#odp"');
+}
+if (withBridge) {
+  sep("Jaringan");
+  menu("bridge", "Bridge", "Bridge ONT", '"/bridge.html"');
 }
 if (withUpdate || withStatus) sep("Sistem");
 if (withStatus) menu("status", "Status", "Status", '"/status.html"');
@@ -94,4 +100,4 @@ for (const [a, b] of patches) {
 }
 const THEME = withTheme ? fs.readFileSync(path.join(__dirname, "theme-runtime.js"), "utf8").replace(/\r/g, "") + "\n" : "";
 fs.writeFileSync(out, MARK + "\n" + THEME + s);
-console.log("patch OK (bot:" + (port || "-") + " peta:" + (withMap ? "ya" : "-") + " botpage:" + (withBotPage ? "ya" : "-") + " tema:" + (withTheme ? "ya" : "-") + " wa:" + (withWaPage ? "ya" : "-") + " update:" + (withUpdate ? "ya" : "-") + " status:" + (withStatus ? "ya" : "-") + ")");
+console.log("patch OK (bot:" + (port || "-") + " peta:" + (withMap ? "ya" : "-") + " botpage:" + (withBotPage ? "ya" : "-") + " tema:" + (withTheme ? "ya" : "-") + " wa:" + (withWaPage ? "ya" : "-") + " bridge:" + (withBridge ? "ya" : "-") + " update:" + (withUpdate ? "ya" : "-") + " status:" + (withStatus ? "ya" : "-") + ")");

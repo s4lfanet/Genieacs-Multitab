@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="acs-page" content="bridge">
+<title>Bridge ONT</title>
+<style>
+:root{--bg:#fff;--surface:#fff;--fg:#002f2f;--mut:#667078;--bd:#ebe0bf;--pri:#046380;--soft:#f2ebd5;--on:#fff;--ok:#16803c;--bad:#c62828;--warn:#b45309}
+*{box-sizing:border-box}html,body{margin:0}
+body{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);padding:18px 22px 40px}
+.wrap{max-width:980px}
+h1{font-size:20px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 14px}
+.card{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut);margin:0 0 12px}
+input[type=text],input[type=number],select{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--bd);border-radius:10px;padding:8px 11px}
+input:focus,select:focus{outline:2px solid var(--pri);outline-offset:-1px}
+button{font:inherit;font-weight:600;border:1px solid var(--bd);background:var(--surface);color:var(--fg);border-radius:10px;padding:7px 14px;cursor:pointer}
+button.pri{background:var(--pri);border-color:var(--pri);color:var(--on)}
+button.bad{color:var(--bad);border-color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.list{max-height:240px;overflow:auto;border:1px solid var(--bd);border-radius:10px;margin-top:10px}
+.item{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid var(--bd);cursor:pointer}
+.item:last-child{border-bottom:0}.item:hover{background:var(--soft)}
+.m{color:var(--mut);font-size:12px}
+table{width:100%;border-collapse:collapse}td,th{padding:7px 6px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:middle}
+tr:last-child td{border-bottom:0}th{color:var(--mut);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.chip{display:inline-block;padding:1px 9px;border-radius:999px;font-size:11.5px;font-weight:700;background:var(--soft);color:var(--mut)}
+.chip.ok{color:var(--ok)}.chip.warn{color:var(--warn)}.chip.bad{color:var(--bad)}
+.ports{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin:10px 0}
+.port{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--bd);border-radius:10px;padding:8px 10px}
+.port.used{background:var(--soft)}.port small{display:block;color:var(--mut)}
+.f{display:flex;gap:6px;flex-direction:column}.f label{font-weight:600}
+.msg{border-radius:10px;padding:10px 14px;margin:10px 0;background:var(--soft)}
+.msg.er{border:1px solid var(--bad);color:var(--bad)}.msg.ok{border:1px solid var(--ok);color:var(--ok)}.msg.warn{border:1px solid var(--warn);color:var(--warn)}
+pre.log{background:var(--soft);border-radius:10px;padding:10px 12px;margin:10px 0 0;max-height:260px;overflow:auto;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap}
+code{font-family:ui-monospace,Consolas,monospace;background:var(--soft);border-radius:6px;padding:1px 6px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Bridge ONT ZTE</h1>
+  <p class="sub">Buat WAN bridge (VLAN tertentu) dan atur LAN-bind-nya untuk ZTE F679D / F670L, yang di web admin ONT-nya tidak punya menu bridge. WAN PPPoE dan TR-069 tidak diubah.</p>
+
+  <div class="card">
+    <h2>1. Pilih ONT</h2>
+    <div class="row"><input type="text" id="q" placeholder="SN, username PPPoE, atau ID device" style="min-width:300px;flex:1"><button id="find" class="pri">Cari</button></div>
+    <div id="res" class="list hide"></div>
+  </div>
+
+  <div id="dev" class="hide">
+    <div class="card">
+      <h2>2. Kondisi sekarang <span id="dname" class="chip"></span></h2>
+      <div class="row" style="margin-bottom:8px"><button id="reread">Baca ulang dari ONT</button><span class="m" id="rstat"></span></div>
+      <table><thead><tr><th>WAN</th><th>Jenis</th><th>VLAN</th><th>Status</th><th>Port LAN</th><th></th></tr></thead><tbody id="wans"></tbody></table>
+    </div>
+
+    <div class="card">
+      <h2>3. <span id="ftitle">Buat bridge baru</span></h2>
+      <div class="row">
+        <div class="f"><label for="bname">Nama WAN</label><input type="text" id="bname" maxlength="30" value="BRIDGE_151"></div>
+        <div class="f"><label for="bvlan">VLAN</label><input type="number" id="bvlan" min="2" max="4094" value="151" style="width:110px"></div>
+      </div>
+      <div class="m" style="margin-top:12px"><b>Port yang di-bridge</b> (LAN-bind). Port yang sudah dipakai WAN lain tidak bisa dipilih kecuali Anda mencentang "pindahkan".</div>
+      <div id="ports" class="ports"></div>
+      <label class="m"><input type="checkbox" id="move"> Pindahkan port yang sedang dipakai WAN lain (mengubah LAN-bind WAN itu; PPPoE-nya sendiri tidak diubah)</label>
+      <div class="row" style="margin-top:12px"><button id="go" class="pri">Buat bridge</button><button id="cancel" class="hide">Batal ubah</button></div>
+      <div id="msg"></div>
+      <pre id="log" class="log hide"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function(){
+  var M={"--bg":"--acs-bg","--surface":"--acs-surface","--fg":"--acs-text","--mut":"--acs-muted","--bd":"--acs-border","--pri":"--acs-accent","--soft":"--acs-soft","--on":"--acs-on-accent","--ok":"--acs-ok","--bad":"--acs-bad","--warn":"--acs-warn"};
+  function ap(){var r=document.documentElement;try{var p=parent.document.documentElement,cs=parent.getComputedStyle(p);
+    Object.keys(M).forEach(function(k){var v=cs.getPropertyValue(M[k]).trim();if(v)r.style.setProperty(k,v)});
+    r.classList.toggle("dark",p.classList.contains("acs-dark"))}catch(e){}}
+  ap();try{new MutationObserver(ap).observe(parent.document.documentElement,{attributes:true})}catch(e){}
+})();
+
+/*CORE*/
+// Logika bridge ZTE (diuji terpisah di Node terhadap NBI; tidak menyentuh DOM).
+// adapter: { read(id) -> Promise<{path:value}> (datar, hanya pohon yang perlu), task(id, body) -> Promise<{ok:boolean, status:number}>,
+//            clean(id) -> Promise (hapus task macet & fault)}
+var WCD="InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1";
+var PB="InternetGatewayDevice.X_ZTE-COM_PortBinding";
+var LAN="InternetGatewayDevice.LANDevice.1";
+var READ_ROOTS=[WCD,PB,LAN+".LANEthernetInterfaceConfig",LAN+".WLANConfiguration"];
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function parseModel(flat){
+  var wans={},binds={},ports={};
+  Object.keys(flat).forEach(function(p){
+    var m=p.indexOf(WCD+".")===0&&p.slice(WCD.length+1).match(/^WAN(IP|PPP)Connection\.(\d+)\.(.+)$/);
+    if(m){var k=m[1]+m[2],w=wans[k]||(wans[k]={kind:m[1],idx:+m[2],path:WCD+".WAN"+m[1]+"Connection."+m[2]});
+      var n=m[3],v=flat[p];
+      if(n==="Name")w.name=v;else if(n==="ConnectionType")w.type=v;else if(n==="ConnectionStatus")w.status=v;
+      else if(n==="X_ZTE-COM_VLANID")w.vlan=+v;else if(n==="X_ZTE-COM_VLANEnable")w.vlanOn=String(v)==="true";
+      else if(n==="Enable")w.enable=String(v)==="true";else if(n==="X_ZTE-COM_ServiceList")w.service=v;
+      else if(n==="Username")w.user=v;else if(n==="ExternalIPAddress")w.ip=v;return}
+    m=p.indexOf(PB+".")===0&&p.slice(PB.length+1).match(/^(\d+)\.(WANInterface|LANInterface)$/);
+    if(m){var b=binds[m[1]]||(binds[m[1]]={idx:+m[1],wan:"",lan:[]});
+      if(m[2]==="WANInterface")b.wan=String(flat[p]||"").trim();else b.lan=String(flat[p]||"").split(",").map(function(x){return x.trim()}).filter(Boolean);return}
+    m=p.indexOf(LAN+".")===0&&p.slice(LAN.length+1).match(/^(LANEthernetInterfaceConfig|WLANConfiguration)\.(\d+)\.(Enable|SSID|Name)$/);
+    if(m){var pk=m[1]+m[2],o=ports[pk]||(ports[pk]={path:LAN+"."+m[1]+"."+m[2],eth:m[1]==="LANEthernetInterfaceConfig",n:+m[2]});
+      if(m[3]==="SSID")o.ssid=flat[p];else if(m[3]==="Enable")o.on=String(flat[p])==="true"}
+  });
+  var wl=Object.keys(wans).map(function(k){return wans[k]}).sort(function(a,b){return a.kind<b.kind?1:a.kind>b.kind?-1:a.idx-b.idx});
+  var bl=Object.keys(binds).map(function(k){return binds[k]}).sort(function(a,b){return a.idx-b.idx});
+  var pl=Object.keys(ports).map(function(k){return ports[k]}).sort(function(a,b){return a.eth!==b.eth?(a.eth?-1:1):a.n-b.n});
+  pl.forEach(function(o){o.label=o.eth?"LAN"+o.n:"SSID"+o.n;if(!o.eth)o.detail=(o.ssid||"")+(o.on===false?" (nonaktif)":"")});
+  return {wans:wl,binds:bl,ports:pl};
+}
+function isBridge(w){return w.type==="IP_Bridged"||w.type==="PPPoE_Bridged"}
+function isProtected(w){return /TR069/i.test(w.service||"")||w.kind==="PPP"}   // WAN TR-069 / PPPoE tidak pernah dihapus/diubah dari sini
+function bindOf(model,w){return model.binds.filter(function(b){return b.wan===w.path})[0]||null}
+function wanBy(model,path){return model.wans.filter(function(w){return w.path===path})[0]||null}
+function portUse(model){ // path port -> WAN (objek) yang memakainya
+  var u={};model.binds.forEach(function(b){var w=wanBy(model,b.wan);b.lan.forEach(function(l){u[l]={bind:b,wan:w,wanPath:b.wan}})});return u}
+function validate(model,o,editPath){
+  var vlan=+o.vlan,name=String(o.name||"").trim();
+  if(!(vlan>=2&&vlan<=4094))return "VLAN harus 2 sampai 4094";
+  if(!/^[A-Za-z0-9_.-]{1,30}$/.test(name))return "Nama WAN: huruf/angka/_ . - maksimal 30 karakter";
+  if(!o.ports||!o.ports.length)return "Pilih minimal satu port";
+  var clash=model.wans.filter(function(w){return w.vlan===vlan&&w.path!==editPath})[0];
+  if(clash)return "VLAN "+vlan+" sudah dipakai WAN "+(clash.name||clash.path)+"; pilih VLAN lain";
+  var u=portUse(model),bad=[];
+  o.ports.forEach(function(p){var x=u[p];if(x&&x.wanPath!==editPath){if(!o.move)bad.push(portLabel(model,p)+" ("+(x.wan&&x.wan.name||x.wanPath)+")")}});
+  if(bad.length)return "Port sudah dipakai WAN lain: "+bad.join(", ")+". Centang 'pindahkan' kalau memang ingin dipindah.";
+  var known={};model.ports.forEach(function(p){known[p.path]=1});
+  for(var i=0;i<o.ports.length;i++)if(!known[o.ports[i]])return "Port tidak dikenal: "+o.ports[i];
+  return null;
+}
+function portLabel(model,path){var p=model.ports.filter(function(x){return x.path===path})[0];return p?p.label:path}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function Ops(ad,id,log){
+  function step(msg,body){
+    log("• "+msg+" …");
+    return ad.task(id,body).then(function(r){
+      if(!r.ok){return ad.clean(id).then(function(){throw new Error(msg+" gagal"+(r.status===202?" (ONT tidak menjawab atau menolak; cek tab Fault)":" (HTTP "+r.status+")"))})}
+      log("  ok");return r});
+  }
+  function refresh(obj){return step("baca "+obj.replace("InternetGatewayDevice.",""),{name:"refreshObject",objectName:obj})}
+  function spv(msg,pairs){return step(msg,{name:"setParameterValues",parameterValues:pairs})}
+  function model(){return ad.read(id).then(parseModel)}
+  var o={};
+  o.model=model;
+  o.reread=function(){
+    return refresh(WCD+".WANIPConnection").then(function(){return refresh(WCD+".WANPPPConnection")}).then(function(){return refresh(PB)}).then(model)};
+  o.create=function(opt){
+    var before,wanPath,bindPath,created=[];
+    return o.reread().then(function(m){
+      before=m;var e=validate(m,opt,null);if(e)throw new Error(e);
+      return step("tambah WAN baru",{name:"addObject",objectName:WCD+".WANIPConnection"})})
+    .then(function(){return refresh(WCD+".WANIPConnection")}).then(model).then(function(m){
+      var old={};before.wans.forEach(function(w){old[w.path]=1});
+      var nw=m.wans.filter(function(w){return w.kind==="IP"&&!old[w.path]});
+      if(nw.length!==1)throw new Error("WAN baru tidak terdeteksi (ditemukan "+nw.length+"); periksa manual di tab Semua Parameter");
+      wanPath=nw[0].path;created.push({wan:wanPath});
+      return spv("jenis bridge + nama",[[wanPath+".ConnectionType","IP_Bridged","xsd:string"],[wanPath+".Name",opt.name,"xsd:string"]])})
+    .then(function(){return spv("VLAN "+opt.vlan,[[wanPath+".X_ZTE-COM_VLANEnable",true,"xsd:boolean"],[wanPath+".X_ZTE-COM_VLANID",+opt.vlan,"xsd:unsignedInt"]])})
+    .then(function(){return spv("aktifkan WAN",[[wanPath+".Enable",true,"xsd:boolean"]])})
+    .then(function(){return step("tambah entri LAN-bind",{name:"addObject",objectName:PB})})
+    .then(function(){return refresh(PB)}).then(model).then(function(m){
+      var old={};before.binds.forEach(function(b){old[b.idx]=1});
+      var nb=m.binds.filter(function(b){return !old[b.idx]});
+      if(nb.length!==1)throw new Error("entri LAN-bind baru tidak terdeteksi (ditemukan "+nb.length+")");
+      bindPath=PB+"."+nb[0].idx;created.push({bind:bindPath});
+      // lepas dulu port dari WAN lain (kalau 'pindahkan'), baru diikat ke bridge: satu port tidak boleh di dua WAN
+      return o.movePorts(before,opt.ports,bindPath).then(function(){
+        return spv("bind port ke WAN",[[bindPath+".WANInterface",wanPath,"xsd:string"],[bindPath+".LANInterface",opt.ports.join(","),"xsd:string"]])})})
+    .then(function(){return o.reread()})
+    .then(function(m){
+      var w=wanBy(m,wanPath),b=bindOf(m,{path:wanPath});
+      if(!w||w.type!=="IP_Bridged"||w.vlan!==+opt.vlan||!w.enable)throw new Error("verifikasi WAN gagal (ONT tidak menyimpan semua nilai)");
+      if(!b||b.lan.slice().sort().join()!==opt.ports.slice().sort().join())throw new Error("verifikasi LAN-bind gagal");
+      log("✔ bridge dibuat: "+w.name+" VLAN "+w.vlan+" -> "+b.lan.map(function(p){return portLabel(m,p)}).join(", "));
+      return {model:m,wan:wanPath};
+    },function(err){ // gagal di tengah jalan: bersihkan yang sempat dibuat (urutan terbalik)
+      if(!created.length)throw err;
+      log("✖ "+err.message+" — membersihkan yang sudah terbuat…");
+      var chain=Promise.resolve();
+      created.slice().reverse().forEach(function(c){chain=chain.then(function(){
+        return ad.task(id,{name:"deleteObject",objectName:c.bind||c.wan}).then(function(r){log("  hapus "+(c.bind||c.wan).replace("InternetGatewayDevice.","")+(r.ok?" ok":" GAGAL (hapus manual)"))})})});
+      return chain.then(function(){return ad.clean(id)}).then(function(){throw err});
+    });
+  };
+  // lepaskan port dari entri bind lain (hanya bila 'pindahkan'): yang diubah hanya LANInterface entri itu
+  o.movePorts=function(before,ports,exceptBind){
+    var chain=Promise.resolve();
+    before.binds.forEach(function(b){
+      if(b.idx===undefined||PB+"."+b.idx===exceptBind)return;
+      var keep=b.lan.filter(function(l){return ports.indexOf(l)<0});
+      if(keep.length===b.lan.length)return;
+      chain=chain.then(function(){return spv("lepas port dari "+(b.wan.split(".").slice(-2).join("."))+"",[[PB+"."+b.idx+".LANInterface",keep.join(","),"xsd:string"]])});
+    });return chain};
+  o.setPorts=function(wanPath,opt){
+    var before;
+    return o.reread().then(function(m){before=m;var w=wanBy(m,wanPath);if(!w||!isBridge(w)||isProtected(w))throw new Error("hanya WAN bridge yang boleh diubah");
+      var e=validate(m,{name:w.name||"x",vlan:w.vlan||2,ports:opt.ports,move:opt.move},wanPath);if(e)throw new Error(e);
+      var b=bindOf(m,w);
+      var p=b?o.movePorts(m,opt.ports,PB+"."+b.idx).then(function(){return spv("ubah port bridge",[[PB+"."+b.idx+".LANInterface",opt.ports.join(","),"xsd:string"]])}):
+        step("tambah entri LAN-bind",{name:"addObject",objectName:PB}).then(function(){return refresh(PB)}).then(model).then(function(m2){
+          var old={};m.binds.forEach(function(x){old[x.idx]=1});var nb=m2.binds.filter(function(x){return !old[x.idx]})[0];
+          if(!nb)throw new Error("entri LAN-bind baru tidak terdeteksi");
+          return o.movePorts(m,opt.ports,PB+"."+nb.idx).then(function(){return spv("bind port",[[PB+"."+nb.idx+".WANInterface",wanPath,"xsd:string"],[PB+"."+nb.idx+".LANInterface",opt.ports.join(","),"xsd:string"]])})});
+      return p})
+    .then(function(){return o.reread()}).then(function(m){log("✔ port bridge diubah");return {model:m}});
+  };
+  o.remove=function(wanPath){
+    return o.reread().then(function(m){
+      var w=wanBy(m,wanPath);if(!w)throw new Error("WAN tidak ditemukan");
+      if(!isBridge(w)||isProtected(w))throw new Error("hanya WAN bridge (bukan PPPoE/TR-069) yang boleh dihapus dari sini");
+      var b=bindOf(m,w),chain=Promise.resolve();
+      if(b)chain=chain.then(function(){return step("hapus LAN-bind",{name:"deleteObject",objectName:PB+"."+b.idx})});
+      return chain.then(function(){return step("hapus WAN bridge",{name:"deleteObject",objectName:wanPath})})})
+    .then(function(){return o.reread()}).then(function(m){if(wanBy(m,wanPath))throw new Error("WAN masih ada setelah dihapus");log("✔ bridge dihapus");return {model:m}});
+  };
+  return o;
+}
+/*ENDCORE*/
+
+// ---------- adapter browser (UI GenieACS: /api/devices, /api/tasks, /api/faults) ----------
+function $(i){return document.getElementById(i)}
+function el(tag,props,kids){var e=document.createElement(tag);Object.keys(props||{}).forEach(function(k){if(k==="text")e.textContent=props[k];else e.setAttribute(k,props[k])});(kids||[]).forEach(function(c){e.appendChild(c)});return e}
+function api(method,path,body){
+  return fetch(path,{method:method,credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.text().then(function(t){
+      if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
+      var j=null;try{j=t?JSON.parse(t):null}catch(e){}
+      return {status:r.status,ok:r.status>=200&&r.status<300,json:j,text:t}})});
+}
+function enc(s){return encodeURIComponent(s)}
+var adapter={
+  read:function(id){
+    return api("GET","/api/devices/?filter="+enc('DeviceID.ID = "'+id+'"')+"&projection="+enc(READ_ROOTS.join(","))).then(function(r){
+      if(!r.ok)throw new Error("Gagal membaca device (HTTP "+r.status+")");
+      var d=r.json&&r.json[0];if(!d)throw new Error("Device tidak ditemukan");
+      var flat={};Object.keys(d).forEach(function(k){var x=d[k];if(x&&x.value&&x.value[0]!=null)flat[k]=x.value[0]});return flat})},
+  task:function(id,body){
+    return api("POST","/api/devices/"+enc(id)+"/tasks?timeout=25000&connection_request",body).then(function(r){return {ok:r.status===200,status:r.status,json:r.json}})},
+  clean:function(id){ // buang task macet & fault device ini supaya tidak menumpuk
+    return api("GET","/api/tasks/?filter="+enc('device = "'+id+'"')).then(function(r){
+      var l=(r.ok&&r.json)||[];return Promise.all(l.map(function(t){return api("DELETE","/api/tasks/"+enc(t._id))}))}).catch(function(){})
+    .then(function(){return api("DELETE","/api/faults/"+enc(id+":default"))}).catch(function(){})}
+};
+
+var cur=null,model=null,ops=null,editing=null,busy=false;
+function logTo(t){var p=$("log");p.classList.remove("hide");p.textContent+=(p.textContent?"\n":"")+t;p.scrollTop=p.scrollHeight}
+function say(t,c){$("msg").innerHTML=t?'<div class="msg '+(c||"")+'">'+esc(t)+"</div>":""}
+function search(){
+  var q=$("q").value.trim().toLowerCase();var box=$("res");box.classList.remove("hide");box.textContent="Memuat…";
+  api("GET","/api/devices/?filter="+enc('DeviceID.Manufacturer = "ZTE"')+"&projection="+enc("DeviceID.ID,DeviceID.SerialNumber,DeviceID.ProductClass,VirtualParameters.pppoeUsername")).then(function(r){
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    var g=function(d,k){var x=d[k];return x&&x.value&&x.value[0]!=null?String(x.value[0]):""};
+    var l=(r.json||[]).map(function(d){return {id:g(d,"DeviceID.ID")||d._id,sn:g(d,"DeviceID.SerialNumber"),model:g(d,"DeviceID.ProductClass"),pppoe:g(d,"VirtualParameters.pppoeUsername")}})
+      .filter(function(x){return !q||(x.id+" "+x.sn+" "+x.pppoe).toLowerCase().indexOf(q)>=0}).slice(0,40);
+    box.textContent="";
+    if(!l.length){box.textContent="Tidak ada ONT ZTE yang cocok.";return}
+    l.forEach(function(x){var it=el("div",{"class":"item"},[el("span",{text:x.pppoe||x.sn||x.id}),el("span",{"class":"m",text:x.model+" · "+x.sn})]);it.onclick=function(){pick(x)};box.appendChild(it)});
+  }).catch(function(e){box.textContent="Gagal mencari: "+e.message});
+}
+function pick(x){
+  cur=x;$("dev").classList.remove("hide");$("res").classList.add("hide");$("dname").textContent=(x.pppoe||x.sn)+" · "+x.model;
+  $("log").textContent="";$("log").classList.add("hide");say("");editing=null;resetForm();
+  ops=Ops(adapter,x.id,logTo);
+  $("rstat").textContent="membaca…";
+  ops.model().then(function(m){model=m;draw();$("rstat").textContent="dari cache GenieACS; tekan 'Baca ulang' untuk data terbaru dari ONT"})
+    .catch(function(e){say(e.message,"er")});
+  if(x.model==="F670L")say("F670L: dukungan ini BELUM diuji pada F670L (diuji pada F679D). Pembuatan WAN lewat TR-069 di F670L bisa ditolak ONT; kalau gagal, perubahan otomatis dibersihkan.","warn");
+  else if(x.model!=="F679D")say("Model "+x.model+" belum diuji; yang teruji hanya F679D.","warn");
+}
+function draw(){
+  var tb=$("wans");tb.textContent="";
+  model.wans.forEach(function(w){
+    var b=bindOf(model,w),ps=b?b.lan.map(function(p){return portLabel(model,p)}).join(", "):"-";
+    var tr=el("tr",{},[el("td",{text:(w.name||"(tanpa nama)")+(w.kind==="PPP"&&!/ppp/i.test(w.name||"")?" · PPPoE":"")}),el("td",{text:w.type||"-"}),el("td",{text:w.vlan?String(w.vlan):"-"}),
+      el("td",{},[el("span",{"class":"chip "+(w.status==="Connected"?"ok":"warn"),text:w.status||"-"})]),el("td",{text:ps})]);
+    var act=el("td");
+    if(isBridge(w)&&!isProtected(w)){
+      var e=el("button",{text:"Ubah port"});e.onclick=function(){startEdit(w)};
+      var d=el("button",{"class":"bad",text:"Hapus",style:"margin-left:6px"});d.onclick=function(){removeBridge(w)};act.appendChild(e);act.appendChild(d)}
+    tr.appendChild(act);tb.appendChild(tr)});
+  drawPorts();
+}
+function drawPorts(){
+  var box=$("ports");box.textContent="";var use=portUse(model),editPath=editing&&editing.path;
+  model.ports.forEach(function(p){
+    var u=use[p.path],mine=u&&u.wanPath===editPath;
+    var cb=el("input",{type:"checkbox",value:p.path});if(mine)cb.checked=true;
+    var note=u&&!mine?"dipakai: "+(u.wan&&u.wan.name||u.wanPath):"";
+    var lab=el("label",{"class":"port"+(u&&!mine?" used":"")},[cb,el("span",{},[el("b",{text:p.label}),el("small",{text:(p.detail||"")+(note?(p.detail?" · ":"")+note:"")})])]);
+    box.appendChild(lab)});
+}
+function resetForm(){$("ftitle").textContent="Buat bridge baru";$("go").textContent="Buat bridge";$("bname").disabled=false;$("bvlan").disabled=false;$("cancel").classList.add("hide");editing=null}
+function startEdit(w){
+  editing=w;$("ftitle").textContent="Ubah port bridge "+(w.name||"");$("go").textContent="Simpan port";$("bname").value=w.name||"";$("bvlan").value=w.vlan||"";
+  $("bname").disabled=true;$("bvlan").disabled=true;$("cancel").classList.remove("hide");say("");drawPorts();$("ftitle").scrollIntoView()}
+function selected(){return Array.prototype.map.call($("ports").querySelectorAll("input:checked"),function(c){return c.value})}
+function run(p){
+  if(busy)return;busy=true;$("go").disabled=true;$("log").textContent="";say("");
+  return p().then(function(r){model=r.model;draw();say("Selesai.","ok")}).catch(function(e){say(e.message,"er")}).then(function(){busy=false;$("go").disabled=false});
+}
+$("find").onclick=search;$("q").onkeydown=function(e){if(e.key==="Enter")search()};
+$("reread").onclick=function(){run(function(){return ops.reread().then(function(m){return {model:m}})})};
+$("cancel").onclick=function(){resetForm();$("bname").value="BRIDGE_151";$("bvlan").value="151";drawPorts()};
+$("go").onclick=function(){
+  if(!ops)return;var ports=selected(),move=$("move").checked;
+  if(editing){var w=editing;run(function(){return ops.setPorts(w.path,{ports:ports,move:move})}).then(function(){resetForm()});return}
+  var o={name:$("bname").value.trim(),vlan:$("bvlan").value,ports:ports,move:move};
+  var err=model?validate(model,o,null):"Data ONT belum terbaca";if(err){say(err,"er");return}
+  if(!confirm("Buat WAN bridge '"+o.name+"' VLAN "+o.vlan+" untuk port: "+ports.map(function(p){return portLabel(model,p)}).join(", ")+"?\n\nONT tidak di-reboot. WAN PPPoE dan TR-069 tidak diubah"+(move?" (kecuali LAN-bind port yang dipindahkan)":"")+"."))return;
+  run(function(){return ops.create(o)});
+};
+function removeBridge(w){
+  if(!confirm("Hapus bridge '"+(w.name||"")+"' (VLAN "+w.vlan+") beserta LAN-bind-nya?\n\nPort yang tadinya di-bridge jadi tidak terikat WAN mana pun sampai Anda mengikatnya lagi."))return;
+  run(function(){return ops.remove(w.path)});
+}
+</script>
+</body>
+</html>
