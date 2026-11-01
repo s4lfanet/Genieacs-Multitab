@@ -15,3 +15,6 @@ bot/wa_qr.txt
 # peta (kredensial & data lokasi pelanggan)
 map/config.json
 map/data/
+
+# APK pihak ketiga (mis. Genieacs.apk): jangan ikut di-commit, lihat docs/ANDROID-APP.md
+*.apk
