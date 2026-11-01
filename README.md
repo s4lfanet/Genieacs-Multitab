@@ -20,7 +20,7 @@ Semuanya dipasang lewat **data MongoDB** (Config, Virtual Parameters, Provisions
 | **WAN & WiFi umum + per merk** | Tabel WAN/WiFi standar TR-069 untuk semua merk, ditambah tampilan khusus per merk (VLAN, service list, LAN bind). |
 | **LAN Config** | IP LAN, DHCP server (start/end/DNS/gateway/lease), status port LAN. Semua bisa diedit. |
 | **Admin Web + ACS** | User/password web ONT (user & superadmin), URL ACS, user/pass ACS, connection request, interval inform, dengan tombol Summon. |
-| **29 Virtual Parameter** | RX power/redaman, suhu, mode PON, uptime, PPPoE (user/IP/password), SSID aktif + jumlah client, user/superadmin web ONT lintas merk (termasuk Nokia/ALCL). |
+| **31 Virtual Parameter** | RX power/redaman, suhu, mode PON, uptime, PPPoE (user/IP/password), SSID aktif + jumlah client, user/superadmin web ONT lintas merk (termasuk Nokia/ALCL). |
 | **Branding** | Ganti logo dari **Admin → Files**, judul/subtitle/warna header dari **Admin → Config** (`branding.*`). |
 | **Bot Telegram** (opsional) | Cek ONT, cari pelanggan, ONT offline, redaman buruk, fault, ganti SSID/password WiFi, refresh, reboot (dengan konfirmasi), alert fault, dan asisten AI yang hanya membaca. |
 | **Bot WhatsApp** (opsional) | Perintah sama persis dengan bot Telegram (lewat Baileys/scan QR — baca risikonya di [docs/WHATSAPP-BOT.md](docs/WHATSAPP-BOT.md) sebelum pasang). |
@@ -57,6 +57,7 @@ Panduan lengkap ada di **[docs/INSTALL.md](docs/INSTALL.md)**.
 | [docs/BRANDING.md](docs/BRANDING.md) | Ganti logo, judul, warna header |
 | [docs/MAP.md](docs/MAP.md) | Peta pelanggan & ODP di sidebar Admin (opsional, tanpa service/port tambahan) |
 | [docs/BRIDGE-ZTE.md](docs/BRIDGE-ZTE.md) | Bridge ZTE F679D/F670L (WAN bridge + LAN-bind) dari sidebar Admin lewat TR-069, karena web admin ONT-nya tidak punya menu bridge |
+| [docs/ANDROID-APP.md](docs/ANDROID-APP.md) | Aplikasi Android `Genieacs.apk` (klien NBI): isinya, kecocokan dengan Multitab, cara menghubungkan, dan **peringatan NBI tanpa autentikasi** |
 | [docs/TEMA.md](docs/TEMA.md) | 9 tema tampilan (terang & gelap), cara kerja, dan cara menambah tema |
 | [docs/UPDATE.md](docs/UPDATE.md) | Update dari sidebar Admin (periksa, pasang, rollback tanpa SSH) dan halaman Status layanan UI/CWMP/NBI/FS (layanan updater + model keamanan) |
 | [scripts/diagnose.sh](scripts/diagnose.sh) | Audit baca-saja server: layanan, file tampilan, connection request, preset berbahaya (jalankan lalu kirim hasilnya bila ada masalah) |
@@ -70,7 +71,7 @@ Panduan lengkap ada di **[docs/INSTALL.md](docs/INSTALL.md)**.
 ```
 config/ui-config.json            semua key Config ui.* + branding.* (tampilan)
 config/bot-config.example.json   contoh key Config bot.*
-virtual-parameters/*.js          29 Virtual Parameter
+virtual-parameters/*.js          31 Virtual Parameter
 provisions/*.js                  provision (default, bootstrap, inform2, useradmin2, remoteweb, nokia_pppoe)
 presets/presets.json             preset referensi (preset opsional dipasang lewat flag installer)
 scripts/install.sh               installer (backup -> import -> cek UI -> rollback bila gagal)

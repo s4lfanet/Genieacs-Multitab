@@ -23,6 +23,8 @@ Semua VP mengembalikan nilai untuk merk apa pun. Kalau parameter tidak ada, VP m
 | `pppIP`, `pppMac`, `pppUsername` | Varian lama (kompatibilitas) | – |
 | `WanIP`, `WanMac`, `WanType` | WAN utama (PPPoE dulu, lalu IP), termasuk Nokia (PPPoE di WCD.2+) | – |
 | `WlanPassword` | Password WiFi SSID 1. Kalau ONT tidak mengembalikan (Huawei/Nokia), nilai terakhir dipertahankan | ✅ |
+| `WlanSSID` | SSID WiFi 1 (bisa ditulis). Dipakai aplikasi Android ([ANDROID-APP.md](ANDROID-APP.md)) | ✅ |
+| `MacAddress` | MAC WAN/LAN pertama yang valid, lintas merk. Dipakai aplikasi Android | – |
 | `ssidActive` | Daftar SSID aktif + jumlah client, mis. `Rumah (3) \| Rumah_5G (1)`, untuk index SSID berapa pun | – |
 | `activedevices` | Total client WiFi semua SSID aktif | – |
 | `userconnected` | TotalAssociations (selalu ada nilai) | – |
