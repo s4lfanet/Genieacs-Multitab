@@ -19,12 +19,6 @@ Halaman Multitab memanggil `/api/...` ke host yang sama, jadi otomatis ikut lewa
 - NBI **tidak punya autentikasi**. Siapa pun yang mencapainya bisa membaca sandi WiFi semua pelanggan, me-restart, dan mengubah ONT. Karena itu ada proxy di port 7558.
 - ONT tetap memakai `http://IP:7547` di jaringan Anda. Mengubah URL ACS di ratusan ONT ke HTTPS itu berisiko dan banyak ONT tidak mendukung TLS modern.
 
-## Halaman di sidebar Admin
-
-**Admin → Jaringan → Tunnel** (`/tunnel.html`) menampilkan status `cloudflared` dan proxy NBI, serta panduan 5 langkah: isi domain dan subdomain, lalu halaman membuatkan perintah pemasangan, tabel Public Hostname untuk disalin ke Cloudflare, dan pengaturan aplikasi Android. Tombol *Cek jangkauan* memeriksa apakah kedua host menjawab dari browser Anda.
-
-Halaman ini sengaja **tidak memasang apa pun dan tidak menerima token** (token tidak boleh tersimpan di Config yang terbaca banyak pengguna). Pemasangan tetap lewat `scripts/setup-tunnel.sh` di server. Halaman ikut terpasang lewat Admin → Update atau `bash scripts/ui-admin-menu.sh --tunnel`.
-
 ## Pasang
 
 1. **Cloudflare**: domain harus sudah memakai nameserver Cloudflare. Zero Trust → Networks → Tunnels → *Create a tunnel* → *Cloudflared* → salin **token**.
@@ -73,8 +67,44 @@ Admin → **Status** menampilkan `Cloudflare Tunnel` dan `Proxy NBI (tunnel)` di
 
 | Gejala | Penyebab / tindakan |
 |---|---|
+| Log `cloudflared` penuh `datagram manager error: timeout` | UDP/QUIC diganggu jaringan. Service sudah memakai `--protocol http2` (TCP 7844) agar stabil; bila Anda memasangnya manual, tambahkan opsi itu |
 | Cloudflare menampilkan error 502/1033 | `cloudflared` mati atau token salah: `journalctl -u cloudflared -n 30` |
 | `api.…` 502 | proxy atau NBI mati: `systemctl status genieacs-nbi-proxy genieacs-nbi` |
 | `api.…` 401 terus | pengguna/sandi salah; sandi baru: `printf '%s' 'sandibaru12+' \| node /usr/local/lib/genieacs-multitab/nbi-proxy.js --make-conf salfa \| sudo tee /etc/genieacs-multitab/nbi-proxy.json` lalu `sudo systemctl restart genieacs-nbi-proxy` |
 | UI terbuka tetapi halaman Multitab kosong | tekan Ctrl+F5; pastikan Access tidak memblokir `/api/*` untuk browser yang sama |
 | Banner "Configuration has been modified" | wajar sesudah Config berubah; tidak berkaitan dengan tunnel |
+
+## Memakai nama (subdomain) sebagai URL ACS di jaringan MikroTik
+
+Tunnel hanya meneruskan HTTP/HTTPS (443). Port **7547 (CWMP) tidak lewat tunnel**: ONT tetap terhubung langsung di LAN. Yang bisa diganti adalah *cara ONT menemukan server*: pakai nama yang di-resolve MikroTik, bukan IP. Pakai **nama terpisah** khusus lokal, bukan nama yang dipakai tunnel:
+
+| Nama | Untuk | Mengarah ke |
+|---|---|---|
+| `acs.salfa.my.id` | Web UI publik lewat tunnel | Cloudflare |
+| `cwmp.salfa.my.id` (contoh) | URL ACS di ONT | `192.168.54.254`, hanya di DNS MikroTik |
+
+Keuntungan: bila IP server berubah, cukup ubah satu entri DNS di MikroTik, bukan ratusan ONT.
+
+**1. MikroTik (siapkan dulu, belum menyentuh ONT)**
+```
+/ip dns set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8
+/ip dns static add name=cwmp.salfa.my.id address=192.168.54.254 comment="ACS TR-069 lokal"
+/ip dns cache flush
+# izinkan ONT bertanya DNS ke router (letakkan SEBELUM aturan drop):
+/ip firewall filter add chain=input in-interface=TR069_CDATA protocol=udp dst-port=53 action=accept place-before=0
+/ip firewall filter add chain=input in-interface=TR069_CDATA protocol=tcp dst-port=53 action=accept place-before=0
+# DHCP untuk ONT harus memberi DNS = IP router di subnet itu (contoh 172.21.10.1):
+/ip dhcp-server network set [find address~"172.21.8"] dns-server=172.21.10.1
+```
+Uji dari subnet ONT (atau dari ONT, menu ping/diagnostik): `cwmp.salfa.my.id` harus menjawab `192.168.54.254`.
+
+**2. Satu ONT uji dulu** (jangan massal)
+- Pastikan ONT uji masih bisa dibuka web admin-nya dari LAN (jalan kembali bila ia lepas dari ACS).
+- Di GenieACS: buka ONT → tab **Admin Web** → bagian ACS / TR-069 → ubah `ManagementServer.URL` menjadi `http://cwmp.salfa.my.id:7547` → commit.
+- Tunggu satu siklus inform (±5 menit). ONT harus tetap muncul dengan *Last inform* baru. Kalau tidak, kembalikan URL ke `http://192.168.54.254:7547` lewat web admin ONT.
+
+**3. Sesudah uji berhasil**, ubah ONT lain **bertahap** (puluhan, bukan semua sekaligus), dan pantau fault serta *Last inform*. Jangan memakai preset `inform`/`useradmin` untuk mendorong URL baru ke semua ONT; installer sengaja menonaktifkan pengubahan URL ACS otomatis (`GM_ENABLE_INFORM`).
+
+### Membuka web UI dari dalam LAN
+- **Lewat tunnel** (disarankan): pastikan DNS router meneruskan ke DNS publik (`servers=1.1.1.1,8.8.8.8` di atas) dan hapus cache; lalu `https://acs.salfa.my.id` terbuka dengan HTTPS. Ini juga memperbaiki `ERR_NAME_NOT_RESOLVED` bila router menyimpan jawaban "domain tidak ada".
+- **Langsung ke server:** `/ip dns static add name=acs.salfa.my.id address=192.168.54.254` lalu buka `http://acs.salfa.my.id:3000`. Server tidak punya HTTPS di 443, jadi `https://acs.salfa.my.id` tanpa port akan gagal di LAN bila nama ini di-override.

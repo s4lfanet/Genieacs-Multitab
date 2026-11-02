@@ -110,7 +110,7 @@ Wants=network-online.target
 
 [Service]
 EnvironmentFile=/etc/cloudflared/token.env
-ExecStart=/usr/local/bin/cloudflared --no-autoupdate tunnel run
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate --protocol http2 tunnel run
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
