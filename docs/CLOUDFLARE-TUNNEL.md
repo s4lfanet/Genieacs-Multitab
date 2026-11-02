@@ -73,6 +73,7 @@ Admin → **Status** menampilkan `Cloudflare Tunnel` dan `Proxy NBI (tunnel)` di
 
 | Gejala | Penyebab / tindakan |
 |---|---|
+| Log `cloudflared` penuh `datagram manager error: timeout` | UDP/QUIC diganggu jaringan. Service sudah memakai `--protocol http2` (TCP 7844) agar stabil; bila Anda memasangnya manual, tambahkan opsi itu |
 | Cloudflare menampilkan error 502/1033 | `cloudflared` mati atau token salah: `journalctl -u cloudflared -n 30` |
 | `api.…` 502 | proxy atau NBI mati: `systemctl status genieacs-nbi-proxy genieacs-nbi` |
 | `api.…` 401 terus | pengguna/sandi salah; sandi baru: `printf '%s' 'sandibaru12+' \| node /usr/local/lib/genieacs-multitab/nbi-proxy.js --make-conf salfa \| sudo tee /etc/genieacs-multitab/nbi-proxy.json` lalu `sudo systemctl restart genieacs-nbi-proxy` |
