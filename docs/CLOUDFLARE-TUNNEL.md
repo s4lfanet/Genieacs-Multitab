@@ -19,12 +19,6 @@ Halaman Multitab memanggil `/api/...` ke host yang sama, jadi otomatis ikut lewa
 - NBI **tidak punya autentikasi**. Siapa pun yang mencapainya bisa membaca sandi WiFi semua pelanggan, me-restart, dan mengubah ONT. Karena itu ada proxy di port 7558.
 - ONT tetap memakai `http://IP:7547` di jaringan Anda. Mengubah URL ACS di ratusan ONT ke HTTPS itu berisiko dan banyak ONT tidak mendukung TLS modern.
 
-## Halaman di sidebar Admin
-
-**Admin → Jaringan → Tunnel** (`/tunnel.html`) menampilkan status `cloudflared` dan proxy NBI, serta panduan 5 langkah: isi domain dan subdomain, lalu halaman membuatkan perintah pemasangan, tabel Public Hostname untuk disalin ke Cloudflare, dan pengaturan aplikasi Android. Tombol *Cek jangkauan* memeriksa apakah kedua host menjawab dari browser Anda.
-
-Halaman ini sengaja **tidak memasang apa pun dan tidak menerima token** (token tidak boleh tersimpan di Config yang terbaca banyak pengguna). Pemasangan tetap lewat `scripts/setup-tunnel.sh` di server. Halaman ikut terpasang lewat Admin → Update atau `bash scripts/ui-admin-menu.sh --tunnel`.
-
 ## Pasang
 
 1. **Cloudflare**: domain harus sudah memakai nameserver Cloudflare. Zero Trust → Networks → Tunnels → *Create a tunnel* → *Cloudflared* → salin **token**.

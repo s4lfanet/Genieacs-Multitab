@@ -12,7 +12,6 @@
 #   bash scripts/ui-admin-menu.sh --botpage  # hanya halaman 🤖 Bot (pengaturan bot di Admin -> Config)
 #   bash scripts/ui-admin-menu.sh --theme    # hanya tombol tema gelap/terang
 #   bash scripts/ui-admin-menu.sh --update   # hanya halaman Update (butuh layanan updater: scripts/setup-updater.sh)
-#   bash scripts/ui-admin-menu.sh --tunnel   # hanya halaman Cloudflare Tunnel (panduan + status; tidak memasang tunnel)
 #   bash scripts/ui-admin-menu.sh --bridge   # hanya halaman Bridge ONT ZTE (buat WAN bridge + LAN-bind lewat TR-069)
 #   bash scripts/ui-admin-menu.sh --status   # hanya halaman Status layanan (UI/CWMP/NBI/FS; datanya dari layanan updater)
 #   (opsi bisa digabung; --bot / --bot=PORT = menu Bot lama berupa iframe ke port QR WA, perlu port itu terjangkau)
@@ -48,7 +47,7 @@ if [ "${1:-}" = "--remove" ]; then
   exit 0
 fi
 
-BOT=0; MAP=0; BOTPAGE=0; THEME=0; WAPAGE=0; UPDPAGE=0; STATPAGE=0; BRIDGEPAGE=0; TUNNELPAGE=0
+BOT=0; MAP=0; BOTPAGE=0; THEME=0; WAPAGE=0; UPDPAGE=0; STATPAGE=0; BRIDGEPAGE=0
 if [ $# -eq 0 ]; then BOT=3010; fi
 for a in "$@"; do
   case "$a" in
@@ -60,14 +59,14 @@ for a in "$@"; do
     --update) UPDPAGE=1 ;;
     --status) STATPAGE=1 ;;
     --bridge) BRIDGEPAGE=1 ;;
-    --tunnel) TUNNELPAGE=1 ;;
-    --all) MAP=1; BOTPAGE=1; THEME=1; WAPAGE=1; UPDPAGE=1; STATPAGE=1; BRIDGEPAGE=1; TUNNELPAGE=1 ;;
+    --tunnel) ;;   # halaman Tunnel sudah dihapus; opsi diterima (diabaikan) supaya updater lama yang masih mengirimnya tidak gagal
+    --all) MAP=1; BOTPAGE=1; THEME=1; WAPAGE=1; UPDPAGE=1; STATPAGE=1; BRIDGEPAGE=1 ;;
     [0-9]*) BOT="$a" ;;
     *) echo "Opsi tidak dikenal: $a"; exit 2 ;;
   esac
 done
 TMP="$(mktemp --suffix=.mjs)"; trap 'rm -f "$TMP"' EXIT
-node "$ROOT/scripts/lib/ui-admin-menu.js" "$BK" "$TMP" "$BOT" "$MAP" "$BOTPAGE" "$THEME" "$WAPAGE" "$UPDPAGE" "$STATPAGE" "$BRIDGEPAGE" "$TUNNELPAGE"
+node "$ROOT/scripts/lib/ui-admin-menu.js" "$BK" "$TMP" "$BOT" "$MAP" "$BOTPAGE" "$THEME" "$WAPAGE" "$UPDPAGE" "$STATPAGE" "$BRIDGEPAGE"
 # pastikan JS hasil patch tetap valid (.mjs: bundle GenieACS adalah modul ES).
 # Node < 14 tidak bisa memeriksa sintaks bundle (optional chaining dst). Di situ pengecekan dilewati HANYA bila
 # bundle sumbernya persis bundle GenieACS 1.2.13 (md5 di bawah) yang hasil patch-nya sudah divalidasi di Node baru.
@@ -84,7 +83,7 @@ if [ "$WAPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/wa.html" "$PUB/wa.htm
 if [ "$UPDPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/update.html" "$PUB/update.html"; fi
 if [ "$STATPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/status.html" "$PUB/status.html"; fi
 if [ "$BRIDGEPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/bridge.html" "$PUB/bridge.html"; fi
-if [ "$TUNNELPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/tunnel.html" "$PUB/tunnel.html"; fi
+sudo rm -f "$PUB/tunnel.html"   # sisa halaman Tunnel versi lama
 sudo install -m 644 "$TMP" "$JS"
 if ! ui_ok; then echo "!! UI tidak sehat -> kembalikan file asli"; sudo install -m 644 "$BK" "$JS"; sudo rm -f "$PUB/peta.html" "$PUB/bot.html" "$PUB/wa.html" "$PUB/update.html" "$PUB/status.html" "$PUB/bridge.html" "$PUB/tunnel.html"; exit 1; fi
 echo "Selesai. Buka GenieACS, tekan Ctrl+F5, lalu Admin -> menu baru di sidebar (Bot WA, Pengaturan Bot, Peta, ODP, Bridge, Update) dan tombol tema di pojok kanan bawah."
