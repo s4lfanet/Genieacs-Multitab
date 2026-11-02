@@ -115,7 +115,7 @@ function pubDir() {
 function appJs(pub) {
   try { const f = fs.readdirSync(pub).filter((x) => /^app-[A-Za-z0-9]+\.js$/.test(x)); return f.length ? path.join(pub, f[0]) : ""; } catch (e) { return ""; }
 }
-const PAGES = [["peta.html", "--map"], ["bot.html", "--botpage"], ["wa.html", "--wapage"], ["status.html", "--status"], ["bridge.html", "--bridge"]];
+const PAGES = [["peta.html", "--map"], ["bot.html", "--botpage"], ["wa.html", "--wapage"], ["status.html", "--status"], ["bridge.html", "--bridge"], ["tunnel.html", "--tunnel"]];
 function installedFlags() {
   const pub = pubDir(), js = appJs(pub), f = [];
   if (!pub || !js) return f;
@@ -123,6 +123,7 @@ function installedFlags() {
   try { if (fs.readFileSync(js, "utf8").indexOf("acs-theme-btn") >= 0) f.push("--theme"); } catch (e) { /* abaikan */ }
   f.push("--update"); // layanan ini ada, jadi halaman Update selalu ikut
   if (f.indexOf("--status") < 0) f.push("--status"); // dan halaman Status (datanya dari layanan ini)
+  if (f.indexOf("--tunnel") < 0) f.push("--tunnel"); // dan halaman Tunnel (hanya panduan + status; tidak memasang apa pun)
   if (f.indexOf("--bridge") < 0) f.push("--bridge"); // dan halaman Bridge (hanya bekerja bila ada ONT ZTE; tidak mengubah apa pun sendiri)
   return f;
 }
@@ -218,7 +219,12 @@ async function apply(comps) {
   log("update " + S.current.short + " -> " + S.remote.short + " (komponen: " + comps.join(", ") + ")");
   const meta = snapshot(comps);
   try {
-    if (before !== target) git(["merge", "--ff-only", "origin/" + C.branch]);
+    if (before !== target) {
+      // checkout ini hanya cermin repo (tanpa perubahan lokal, sudah dicek di atas). Bila riwayat di GitHub ditulis ulang
+      // (force-push), merge ff-only gagal; ikuti saja remote.
+      try { git(["merge", "--ff-only", "origin/" + C.branch]); }
+      catch (e) { log("riwayat remote berubah (bukan fast-forward); mengikuti origin/" + C.branch); git(["reset", "--hard", "origin/" + C.branch]); }
+    }
     runUi();
     if (comps.indexOf("wa") >= 0) await updateWa();
     if (!health()) throw new Error("UI GenieACS tidak sehat sesudah update");
@@ -259,7 +265,9 @@ const EXTRA = [
   { id: "mongod", label: "MongoDB", unit: "mongod", alt: "mongodb" },
   { id: "bot", label: "Bot Telegram", unit: "genieacs-bot" },
   { id: "wabot", label: "Bot WhatsApp", unit: "genieacs-wa-bot" },
-  { id: "updater", label: "Updater", unit: "genieacs-multitab-updater" }
+  { id: "updater", label: "Updater", unit: "genieacs-multitab-updater" },
+  { id: "tunnel", label: "Cloudflare Tunnel", unit: "cloudflared" },
+  { id: "nbiproxy", label: "Proxy NBI (tunnel)", unit: "genieacs-nbi-proxy" }
 ];
 function unitInfo(unit) {
   const r = { unit: unit, load: "", active: "", sub: "", pid: 0, up: null, mem: null, restarts: null };

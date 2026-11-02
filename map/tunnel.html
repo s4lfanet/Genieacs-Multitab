@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="acs-page" content="tunnel">
+<title>Cloudflare Tunnel</title>
+<style>
+:root{--bg:#fff;--surface:#fff;--fg:#002f2f;--mut:#667078;--bd:#ebe0bf;--pri:#046380;--soft:#f2ebd5;--on:#fff;--ok:#16803c;--bad:#c62828;--warn:#b45309}
+*{box-sizing:border-box}html,body{margin:0}
+body{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);padding:18px 22px 40px}
+.wrap{max-width:980px}
+h1{font-size:20px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 14px}
+.banner{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;font-weight:700;margin-bottom:14px;background:var(--soft);color:var(--mut)}
+.banner i{width:12px;height:12px;border-radius:50%;background:currentColor;flex:none}
+.banner.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.banner.warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+.banner.bad{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.card{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut);margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;margin-bottom:14px}
+.svc{margin:0;position:relative;overflow:hidden}
+.svc::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--mut)}
+.svc.ok::before{background:var(--ok)}.svc.warn::before{background:var(--warn)}.svc.bad::before{background:var(--bad)}
+.svc .top{display:flex;align-items:center;justify-content:space-between;gap:8px}.svc .nm{font-size:16px;font-weight:800}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:700;background:var(--soft);color:var(--mut);white-space:nowrap}
+.chip i{width:7px;height:7px;border-radius:50%;background:currentColor}.chip.ok{color:var(--ok)}.chip.warn{color:var(--warn)}.chip.bad{color:var(--bad)}
+dl{margin:8px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px}dt{color:var(--mut)}dd{margin:0;text-align:right}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}
+.f{display:flex;flex-direction:column;gap:5px}.f label{font-weight:600}.f small{color:var(--mut)}
+input[type=text]{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--bd);border-radius:10px;padding:8px 11px}
+input:focus{outline:2px solid var(--pri);outline-offset:-1px}
+button{font:inherit;font-weight:600;border:1px solid var(--bd);background:var(--surface);color:var(--fg);border-radius:10px;padding:6px 12px;cursor:pointer}
+button.pri{background:var(--pri);border-color:var(--pri);color:var(--on)}
+.step{display:flex;gap:12px;margin:14px 0}.step b.n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--pri);color:var(--on);display:grid;place-items:center;font-size:12px}
+.step .body{flex:1;min-width:0}
+pre{background:var(--soft);border-radius:10px;padding:10px 12px;margin:8px 0;overflow:auto;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all}
+table{width:100%;border-collapse:collapse;margin:8px 0}td,th{padding:7px 6px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:middle}
+th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.05em}tr:last-child td{border-bottom:0}
+code{font-family:ui-monospace,Consolas,monospace;background:var(--soft);border-radius:6px;padding:1px 6px}
+.m{color:var(--mut);font-size:12px}
+.warnbox{border:1px solid var(--warn);color:var(--warn);border-radius:10px;padding:10px 14px;margin:10px 0}
+.err{border:1px solid var(--bad);background:color-mix(in srgb,var(--bad) 9%,transparent);border-radius:14px;padding:16px 18px}.err b{color:var(--bad)}
+.res span{display:inline-block;margin-right:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Cloudflare Tunnel</h1>
+  <p class="sub">Akses publik ke UI dan API lewat dua subdomain, tanpa membuka port di router. Halaman ini <b>tidak</b> memasang apa pun sendiri dan tidak menerima token: ia membuatkan perintah dan menampilkan statusnya.</p>
+  <div id="off" class="hide" style="display:none"></div>
+  <div class="banner" id="banner"><i></i><span id="btxt">Memuat…</span></div>
+  <div class="grid" id="svcs"></div>
+
+  <div class="card">
+    <h2>Panduan pemasangan</h2>
+    <div class="form">
+      <div class="f"><label for="dom">Domain di Cloudflare</label><input type="text" id="dom" placeholder="domainanda.com"></div>
+      <div class="f"><label for="sui">Subdomain UI</label><input type="text" id="sui" value="acs"><small>→ localhost:3000</small></div>
+      <div class="f"><label for="sapi">Subdomain API</label><input type="text" id="sapi" value="api"><small>→ localhost:7558 (proxy berpassword)</small></div>
+      <div class="f"><label for="usr">Pengguna proxy API</label><input type="text" id="usr" value="salfa"></div>
+    </div>
+    <label class="m"><input type="checkbox" id="wapi" checked> Sertakan API untuk aplikasi Android</label>
+    <div id="warn" class="warnbox" style="display:none"></div>
+
+    <div class="step"><b class="n">1</b><div class="body"><b>Buat tunnel di Cloudflare</b><div class="m">Zero Trust → Networks → Tunnels → <i>Create a tunnel</i> → Cloudflared. Salin <b>token</b>-nya (jangan ditempel di halaman ini).</div></div></div>
+    <div class="step"><b class="n">2</b><div class="body"><b>Jalankan di server</b> (user yang punya sudo, dari folder repo)
+      <pre id="cmd"></pre><button id="ccmd">Salin perintah</button>
+      <div class="m">Sandi proxy dibuat acak dan dicetak sekali di terminal; simpan. Ganti <code>&lt;TOKEN&gt;</code> dengan token Anda.</div></div></div>
+    <div class="step"><b class="n">3</b><div class="body"><b>Tambahkan Public Hostname</b> di tunnel itu (tipe <b>HTTP</b>)
+      <table><thead><tr><th>Hostname</th><th>Layanan</th><th></th></tr></thead><tbody id="hosts"></tbody></table>
+      <div class="warnbox">Jangan arahkan host mana pun ke <code>localhost:7557</code> (NBI tanpa autentikasi), <code>7547</code> (CWMP), atau <code>7567</code> (FS).</div></div></div>
+    <div class="step"><b class="n">4</b><div class="body"><b>Lindungi UI dengan Cloudflare Access</b> (disarankan)<div class="m">Zero Trust → Access → Applications → Self-hosted untuk <code id="uihost"></code>, kebijakan email/OTP.</div></div></div>
+    <div class="step"><b class="n">5</b><div class="body"><b>Aplikasi Android</b><div class="m">Server <code id="apphost"></code>; di <i>Autentikasi Tambahan</i> isi pengguna/sandi proxy.</div></div></div>
+  </div>
+
+  <div class="card">
+    <h2>Cek dari browser ini</h2>
+    <div class="m" style="margin-bottom:8px">Hanya memeriksa apakah nama host menjawab dari jaringan Anda sekarang (DNS + tunnel), bukan apakah isinya benar.</div>
+    <button id="chk" class="pri">Cek jangkauan</button>
+    <div id="res" class="res" style="margin-top:10px"></div>
+  </div>
+  <p class="m">Dokumentasi lengkap: <code>docs/CLOUDFLARE-TUNNEL.md</code>. Hapus: <code>bash scripts/setup-tunnel.sh --remove</code>.</p>
+</div>
+
+<script>
+"use strict";
+(function(){
+  var M={"--bg":"--acs-bg","--surface":"--acs-surface","--fg":"--acs-text","--mut":"--acs-muted","--bd":"--acs-border","--pri":"--acs-accent","--soft":"--acs-soft","--on":"--acs-on-accent","--ok":"--acs-ok","--bad":"--acs-bad","--warn":"--acs-warn"};
+  function ap(){var r=document.documentElement;try{var p=parent.document.documentElement,cs=parent.getComputedStyle(p);
+    Object.keys(M).forEach(function(k){var v=cs.getPropertyValue(M[k]).trim();if(v)r.style.setProperty(k,v)});
+    r.classList.toggle("dark",p.classList.contains("acs-dark"))}catch(e){}}
+  ap();try{new MutationObserver(ap).observe(parent.document.documentElement,{attributes:true})}catch(e){}
+})();
+function $(i){return document.getElementById(i)}
+function el(tag,props,kids){var e=document.createElement(tag);Object.keys(props||{}).forEach(function(k){if(k==="text")e.textContent=props[k];else e.setAttribute(k,props[k])});(kids||[]).forEach(function(c){e.appendChild(c)});return e}
+function api(method,path){
+  return fetch(path,{method:method,credentials:"same-origin"}).then(function(r){return r.text().then(function(t){
+    if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
+    if(!r.ok)throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+    return t?JSON.parse(t):null})});
+}
+function plain(v){v=String(v==null?"":v).trim();return v.length>=2&&v[0]==="'"&&v[v.length-1]==="'"?v.slice(1,-1):v}
+function bytes(n){if(n==null)return "-";var u=["B","KB","MB","GB"],i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return (i>1?n.toFixed(1):Math.round(n))+" "+u[i]}
+function dur(ms){if(ms==null)return "-";var s=Math.max(0,Math.round(ms/1000)),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?d+" hr "+h+" j":h?h+" j "+m+" m":m?m+" m":s+" dtk"}
+
+// ---- status layanan (dari file statis yang ditulis layanan updater; bukan Config, supaya tidak memicu banner reload) ----
+var sysFile="",S=null,seenAt=0,seenVal=null,err=null;
+function getFile(){
+  var p=sysFile?Promise.resolve(sysFile):api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "sys.file"')).then(function(r){sysFile=r&&r[0]?plain(r[0].value):"";return sysFile});
+  return p.then(function(n){
+    if(!/^sys-[0-9a-f]{24}\.json$/.test(n))throw new Error("Layanan updater belum menulis status (pasang/mulai ulang genieacs-multitab-updater)");
+    return fetch("/"+n+"?_="+Date.now(),{cache:"no-store",credentials:"same-origin"})}).then(function(r){
+    if(!r.ok){sysFile="";throw new Error("File status belum ada (HTTP "+r.status+")")}return r.json()});
+}
+var NAMES={tunnel:{label:"Cloudflare Tunnel",role:"Koneksi keluar ke Cloudflare; meneruskan subdomain ke port lokal"},nbiproxy:{label:"Proxy NBI",role:"127.0.0.1:7558, berpassword + daftar putih, di depan NBI 7557"}};
+function judge(s){return s.active==="active"?{k:"ok",t:"Berjalan"}:s.active==="failed"?{k:"bad",t:"Gagal"}:{k:"warn",t:s.active||"?"}}
+function chip(j){return el("span",{"class":"chip "+j.k},[el("i"),document.createTextNode(j.t)])}
+function render(){
+  var off=$("off"),b=$("banner"),t=$("btxt"),g=$("svcs");g.textContent="";
+  if(err){b.className="banner warn";t.textContent="Status tidak bisa dimuat: "+err;return}
+  if(!S){b.className="banner";t.textContent="Menunggu data dari layanan updater…";return}
+  var ex=(S.extra||[]).filter(function(x){return NAMES[x.id]});
+  var tun=ex.filter(function(x){return x.id==="tunnel"})[0],px=ex.filter(function(x){return x.id==="nbiproxy"})[0];
+  var stale=Date.now()-seenAt>60000;
+  if(stale){b.className="banner warn";t.textContent="Data tidak diperbarui lagi. Layanan updater mungkin berhenti."}
+  else if(!tun){b.className="banner";t.textContent="Cloudflare Tunnel belum terpasang. Ikuti panduan di bawah."}
+  else if(tun.active!=="active"){b.className="banner bad";t.textContent="cloudflared tidak berjalan ("+tun.active+"). Cek: journalctl -u cloudflared -n 30"}
+  else if(px&&px.active!=="active"){b.className="banner warn";t.textContent="Tunnel aktif, tetapi proxy NBI tidak berjalan; subdomain API tidak akan bekerja."}
+  else{b.className="banner ok";t.textContent="Tunnel aktif"+(px?" dan proxy NBI berjalan":" (tanpa proxy NBI)")}
+  ex.forEach(function(s){
+    var j=judge(s),c=el("div",{"class":"card svc "+j.k});
+    c.appendChild(el("div",{"class":"top"},[el("span",{"class":"nm",text:NAMES[s.id].label}),chip(j)]));
+    c.appendChild(el("div",{"class":"m",text:NAMES[s.id].role}));
+    var dl=el("dl");[["Berjalan",s.up!=null?dur(s.up*1000+(Date.now()-seenAt)):"-"],["Memori",bytes(s.mem)],["Restart",s.restarts!=null?String(s.restarts):"-"]].forEach(function(r){dl.appendChild(el("dt",{text:r[0]}));dl.appendChild(el("dd",{text:r[1]}))});
+    c.appendChild(dl);g.appendChild(c)});
+}
+function refresh(){getFile().then(function(o){err=null;if(o&&o.sys){S=o.sys;if(o.hb!==seenVal){seenVal=o.hb;seenAt=Date.now()}}render()}).catch(function(e){err=e.message;render()})}
+
+// ---- panduan: perintah & tabel dibuat dari isian ----
+var KEY="acs-tunnel-form";
+function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["dom","sui","sapi","usr"].forEach(function(k){if(o[k]!=null)$(k).value=o[k]});if(o.wapi!=null)$("wapi").checked=!!o.wapi}catch(e){}}
+function save(){try{var o={wapi:$("wapi").checked};["dom","sui","sapi","usr"].forEach(function(k){o[k]=$(k).value});localStorage.setItem(KEY,JSON.stringify(o))}catch(e){}}
+var HOST_RE=/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/i,DOM_RE=/^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i,USR_RE=/^[A-Za-z0-9_.-]{1,32}$/;
+function hostnames(){
+  var d=$("dom").value.trim().toLowerCase(),a=$("sui").value.trim().toLowerCase(),b=$("sapi").value.trim().toLowerCase(),w=$("wapi").checked,u=$("usr").value.trim(),bad=null;
+  if(!d||!DOM_RE.test(d))bad="Isi domain yang valid (mis. domainanda.com)";
+  else if(!HOST_RE.test(a))bad="Subdomain UI tidak valid";
+  else if(w&&!HOST_RE.test(b))bad="Subdomain API tidak valid";
+  else if(w&&a===b)bad="Subdomain UI dan API harus berbeda";
+  else if(w&&!USR_RE.test(u))bad="Pengguna proxy: huruf/angka/_ . - saja";
+  return {bad:bad,ui:a+"."+d,api:b+"."+d,w:w,usr:u};
+}
+function copy(text,btn){var done=function(){var o=btn.textContent;btn.textContent="Tersalin";setTimeout(function(){btn.textContent=o},1200)};
+  try{navigator.clipboard.writeText(text).then(done,function(){fallback()})}catch(e){fallback()}
+  function fallback(){var t=el("textarea");t.value=text;document.body.appendChild(t);t.select();try{document.execCommand("copy");done()}catch(e){}document.body.removeChild(t)}}
+function drawGuide(){
+  save();var h=hostnames(),w=$("warn");
+  if(h.bad){w.style.display="block";w.textContent=h.bad;$("cmd").textContent="";$("hosts").textContent="";$("uihost").textContent="";$("apphost").textContent="";return}
+  w.style.display="none";
+  $("cmd").textContent="CF_TUNNEL_TOKEN='<TOKEN>' bash scripts/setup-tunnel.sh"+(h.w?" --api-user "+h.usr:" --no-api");
+  var tb=$("hosts");tb.textContent="";
+  [[h.ui,"HTTP · localhost:3000"]].concat(h.w?[[h.api,"HTTP · localhost:7558"]]:[]).forEach(function(r){
+    var b=el("button",{text:"Salin"});b.onclick=function(){copy(r[0],b)};
+    tb.appendChild(el("tr",{},[el("td",{},[el("code",{text:r[0]})]),el("td",{text:r[1]}),el("td",{},[b])]))});
+  $("uihost").textContent=h.ui;$("apphost").textContent=h.w?"https://"+h.api:"(API tidak diaktifkan)";
+}
+$("ccmd").onclick=function(){if($("cmd").textContent)copy($("cmd").textContent,$("ccmd"))};
+["dom","sui","sapi","usr","wapi"].forEach(function(k){$(k).oninput=$(k).onchange=drawGuide});
+
+// ---- cek jangkauan dari browser (no-cors: hanya berhasil/tidaknya sambungan) ----
+$("chk").onclick=function(){
+  var h=hostnames(),box=$("res");box.textContent="";
+  if(h.bad){box.textContent=h.bad;return}
+  var list=[["UI",h.ui,"/"]].concat(h.w?[["API",h.api,"/devices?limit=1"]]:[]);
+  list.forEach(function(x){
+    var s=el("span",{text:x[0]+" "+x[1]+": memeriksa…"});box.appendChild(s);
+    var ctl=new AbortController(),to=setTimeout(function(){ctl.abort()},8000);
+    fetch("https://"+x[1]+x[2],{mode:"no-cors",cache:"no-store",signal:ctl.signal}).then(function(){clearTimeout(to);s.textContent=x[0]+" "+x[1]+": terjangkau ✓"})
+      .catch(function(){clearTimeout(to);s.textContent=x[0]+" "+x[1]+": tidak terjangkau ✗ (DNS belum ada / tunnel mati / diblokir)"})});
+};
+load();drawGuide();refresh();setInterval(refresh,5000);
+window.addEventListener("error",function(e){err=e.message||"kesalahan skrip";render()});
+</script>
+</body>
+</html>
