@@ -65,6 +65,7 @@ code{font-family:ui-monospace,Consolas,monospace;background:var(--soft);border-r
       </div>
       <div class="m" style="margin-top:12px"><b>Port yang di-bridge</b> (LAN-bind). Port yang sudah dipakai WAN lain tidak bisa dipilih kecuali Anda mencentang "pindahkan".</div>
       <div id="ports" class="ports"></div>
+      <label class="m"><input type="checkbox" id="restore" checked> Saat bridge dihapus, kembalikan port-nya ke WAN PPPoE (bila port itu tadinya dipindahkan dari PPPoE)</label><br>
       <label class="m"><input type="checkbox" id="move"> Pindahkan port yang sedang dipakai WAN lain (mengubah LAN-bind WAN itu; PPPoE-nya sendiri tidak diubah)</label>
       <div class="row" style="margin-top:12px"><button id="go" class="pri">Buat bridge</button><button id="cancel" class="hide">Batal ubah</button></div>
       <div id="msg"></div>
@@ -211,12 +212,21 @@ function Ops(ad,id,log){
       return p})
     .then(function(){return o.reread()}).then(function(m){log("✔ port bridge diubah");return {model:m}});
   };
-  o.remove=function(wanPath){
+  // opt.restore: setelah bind bridge dihapus, port-nya dikembalikan ke bind WAN PPPoE (bila hanya ada satu WAN PPPoE yang punya bind);
+  // port yang tadinya "dipindahkan" dari PPPoE jadi kembali, bukan menggantung tanpa WAN
+  o.remove=function(wanPath,opt){
     return o.reread().then(function(m){
       var w=wanBy(m,wanPath);if(!w)throw new Error("WAN tidak ditemukan");
       if(!isBridge(w)||isProtected(w))throw new Error("hanya WAN bridge (bukan PPPoE/TR-069) yang boleh dihapus dari sini");
       var b=bindOf(m,w),chain=Promise.resolve();
       if(b)chain=chain.then(function(){return step("hapus LAN-bind",{name:"deleteObject",objectName:PB+"."+b.idx})});
+      var ppp=m.wans.filter(function(x){return x.kind==="PPP"}).map(function(x){return bindOf(m,x)}).filter(Boolean);
+      if(opt&&opt.restore&&b&&b.lan.length&&ppp.length===1){
+        var t=ppp[0],info={};m.ports.forEach(function(p){info[p.path]=p});
+        // hanya port kabel dan SSID yang aktif (SSID nonaktif tidak perlu terikat ke WAN mana pun)
+        var back=b.lan.filter(function(p){return t.lan.indexOf(p)<0&&info[p]&&(info[p].eth||info[p].on!==false)});
+        if(back.length)chain=chain.then(function(){return spv("kembalikan port ke PPPoE",[[PB+"."+t.idx+".LANInterface",t.lan.concat(back).join(","),"xsd:string"]])});
+      }
       return chain.then(function(){return step("hapus WAN bridge",{name:"deleteObject",objectName:wanPath})})})
     .then(function(){return o.reread()}).then(function(m){if(wanBy(m,wanPath))throw new Error("WAN masih ada setelah dihapus");log("✔ bridge dihapus");return {model:m}});
   };
@@ -324,7 +334,7 @@ $("go").onclick=function(){
 };
 function removeBridge(w){
   if(!confirm("Hapus bridge '"+(w.name||"")+"' (VLAN "+w.vlan+") beserta LAN-bind-nya?\n\nPort yang tadinya di-bridge jadi tidak terikat WAN mana pun sampai Anda mengikatnya lagi."))return;
-  run(function(){return ops.remove(w.path)});
+  run(function(){return ops.remove(w.path,{restore:$("restore").checked})});
 }
 </script>
 </body>
