@@ -287,7 +287,7 @@ function pick(x){
   $("rstat").textContent="membaca…";
   ops.model().then(function(m){model=m;draw();$("rstat").textContent="dari cache GenieACS; tekan 'Baca ulang' untuk data terbaru dari ONT"})
     .catch(function(e){say(e.message,"er")});
-  if(x.model==="F670L")say("F670L: dukungan ini BELUM diuji pada F670L (diuji pada F679D). Pembuatan WAN lewat TR-069 di F670L bisa ditolak ONT; kalau gagal, perubahan otomatis dibersihkan.","warn");
+  if(x.model==="F670L")say("F670L: diuji pada firmware V9.0.11P2N38D. WAN PPPoE-nya juga jalur TR-069, jadi jangan dipindah-pindah; yang dibuat/diubah di sini hanya WAN bridge dan LAN-bind-nya.","warn");
   else if(x.model!=="F679D")say("Model "+x.model+" belum diuji; yang teruji hanya F679D.","warn");
 }
 function draw(){
