@@ -2,7 +2,7 @@
 
 Web admin ZTE F679D/F670L tidak punya menu untuk membuat WAN **bridge** dan mengikat port LAN/SSID ke WAN tertentu. Lewat TR-069 keduanya bisa, jadi halaman **Admin → Bridge** (`/bridge.html`) menjalankan langkahnya untuk Anda. Tidak ada service atau port tambahan, dan ONT **tidak di-reboot**.
 
-> Status uji: dibuat dan diuji pada **F679D** (firmware `V9.2.10P5N4A`). **F670L belum diuji**: model data keduanya sama (objek `X_ZTE-COM_PortBinding` ada di semua F670L produksi), tetapi pembuatan WAN lewat TR-069 di F670L pernah ditolak ONT pada kasus lain, jadi halaman memberi peringatan dan membersihkan sendiri bila gagal.
+> Status uji: diuji pada **F679D** (`V9.2.10P5N4A`) dan **F670L** (`V9.0.11P2N38D`): buat bridge di SSID dan port LAN, ubah port, hapus, serta pemindahan/pengembalian port dari PPPoE. WAN PPPoE (dan TR-069) tidak berubah. Catatan F670L: ia tidak punya WAN IP terpisah dan belum punya entri LAN-bind; WAN PPPoE-nya juga jalur TR-069 (`INTERNET_TR069_VOIP`), jadi jangan pernah diubah. Model/firmware lain belum diuji.
 
 ## Yang dilakukan halaman
 
