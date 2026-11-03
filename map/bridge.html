@@ -141,7 +141,7 @@ function Ops(ad,id,log){
   function step(msg,body){
     log("• "+msg+" …");
     return ad.task(id,body).then(function(r){
-      if(!r.ok){return ad.clean(id).then(function(){throw new Error(msg+" gagal"+(r.status===202?" (ONT tidak menjawab atau menolak; cek tab Fault)":" (HTTP "+r.status+")"))})}
+      if(!r.ok){return ad.clean(id).then(function(){throw new Error(msg+" gagal ("+(r.why||(r.status===202?"ONT tidak menjawab atau menolak; cek tab Fault":"HTTP "+r.status))+")")})}
       log("  ok");return r});
   }
   function refresh(obj){return step("baca "+obj.replace("InternetGatewayDevice.",""),{name:"refreshObject",objectName:obj})}
@@ -232,7 +232,7 @@ function api(method,path,body){
     .then(function(r){return r.text().then(function(t){
       if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
       var j=null;try{j=t?JSON.parse(t):null}catch(e){}
-      return {status:r.status,ok:r.status>=200&&r.status<300,json:j,text:t}})});
+      return {status:r.status,ok:r.status>=200&&r.status<300,json:j,text:t,cr:r.headers.get("Connection-Request")}})});
 }
 function enc(s){return encodeURIComponent(s)}
 var adapter={
@@ -241,12 +241,18 @@ var adapter={
       if(!r.ok)throw new Error("Gagal membaca device (HTTP "+r.status+")");
       var d=r.json&&r.json[0];if(!d)throw new Error("Device tidak ditemukan");
       var flat={};Object.keys(d).forEach(function(k){var x=d[k];if(x&&x.value&&x.value[0]!=null)flat[k]=x.value[0]});return flat})},
+  // UI GenieACS: POST /api/devices/<id>/tasks WAJIB berisi ARRAY task (objek tunggal membuat worker UI crash) dan
+  // menjawab 200 + array [{_id,status}] setelah sesi TR-069 selesai (maks ±2 menit); header Connection-Request = "OK" atau alasan gagal
   task:function(id,body){
-    return api("POST","/api/devices/"+enc(id)+"/tasks?timeout=25000&connection_request",body).then(function(r){return {ok:r.status===200,status:r.status,json:r.json}})},
-  clean:function(id){ // buang task macet & fault device ini supaya tidak menumpuk
-    return api("GET","/api/tasks/?filter="+enc('device = "'+id+'"')).then(function(r){
-      var l=(r.ok&&r.json)||[];return Promise.all(l.map(function(t){return api("DELETE","/api/tasks/"+enc(t._id))}))}).catch(function(){})
-    .then(function(){return api("DELETE","/api/faults/"+enc(id+":default"))}).catch(function(){})}
+    return api("POST","/api/devices/"+enc(id)+"/tasks",[body]).then(function(r){
+      var st=r.json&&r.json[0]&&r.json[0].status,why="";
+      if(r.status!==200)why=r.status===503?"ONT sedang dalam sesi, coba lagi":r.status===403?"tidak diizinkan":"HTTP "+r.status;
+      else if(r.cr&&r.cr!=="OK")why="ONT tidak dijangkau: "+r.cr;
+      else if(st==="fault")why="ONT menolak task (lihat tab Fault)";
+      else if(st!=="done")why="belum selesai (status "+st+")";
+      return {ok:r.status===200&&(!r.cr||r.cr==="OK")&&st==="done",status:r.status,why:why,json:r.json}})},
+  clean:function(id){ // UI GenieACS menghapus task yang sudah dicoba; sisa fault dibuang (best effort, galat diabaikan)
+    return api("DELETE","/api/faults/"+enc(id+":default")).catch(function(){})}
 };
 
 var cur=null,model=null,ops=null,editing=null,busy=false;
