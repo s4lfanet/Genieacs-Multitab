@@ -5,7 +5,7 @@
 const http = require("http"), fs = require("fs"), path = require("path");
 const BOT = path.join(__dirname, "..", "bot");
 const AUDIT = path.join(BOT, "audit.log"), hadAudit = fs.existsSync(AUDIT);
-const { createPortal, startServer, normPhone, tagPhone } = require(path.join(BOT, "portal.js"));
+const { createPortal, startServer, normPhone, tagPhone, isLoopback } = require(path.join(BOT, "portal.js"));
 
 let pass = 0, fail = 0;
 const ok = (c, n) => { if (c) { pass++; console.log("  PASS  " + n); } else { fail++; console.log("  FAIL  " + n); } };
@@ -153,6 +153,19 @@ const nbi = http.createServer((q, r) => {
   let st = 0; for (let i = 0; i < 12; i++) st = (await post("/api/otp/request", { phone: "0899000000" + i }, { "X-Forwarded-For": "10.0." + i + ".1", "CF-Connecting-IP": "9.9.9." + i })).status;
   eq(st, 429, "memalsukan X-Forwarded-For/CF-Connecting-IP tidak melewati batas laju (trustProxy mati)");
   srv.close();
+
+  console.log("T13 trustProxy: IP asli dari header hanya dipercaya dari loopback");
+  eq([isLoopback("127.0.0.1"), isLoopback("::1"), isLoopback("::ffff:127.0.0.1"), isLoopback("192.168.54.7"), isLoopback("10.8.0.2")], [true, true, true, false, false], "isLoopback");
+  const tp = createPortal({ nbi: NBI, now: Date.now, settings: () => ({ enabled: true, brand: "TesNet" }), send: async () => {} });
+  const srv2 = startServer(tp, 0, { trustProxy: true }); await new Promise((r) => srv2.on("listening", r));
+  const B2 = "http://127.0.0.1:" + srv2.address().port; let sts = [];
+  for (let i = 0; i < 14; i++) sts.push((await fetch(B2 + "/api/otp/request", { method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "203.0.113." + i }, body: JSON.stringify({ phone: "08990000" + (1000 + i) }) })).status);
+  ok(sts.every((s) => s === 200), "lewat proxy loopback: 14 pelanggan ber-IP berbeda tidak saling memblokir (batas per IP asli)");
+  sts = []; for (let i = 0; i < 12; i++) sts.push((await fetch(B2 + "/api/otp/request", { method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "198.51.100.9" }, body: JSON.stringify({ phone: "08991000" + (1000 + i) }) })).status);
+  ok(sts.indexOf(429) >= 0, "pelanggan ber-IP sama tetap kena batas laju (429)");
+  sts = []; for (let i = 0; i < 12; i++) sts.push((await fetch(B2 + "/api/otp/request", { method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "not an ip!!" }, body: JSON.stringify({ phone: "08992000" + (1000 + i) }) })).status);
+  ok(sts.indexOf(429) >= 0, "header IP tidak valid diabaikan (jatuh ke IP sambungan)");
+  srv2.close();
 
   nbi.close();
   if (!hadAudit) try { fs.unlinkSync(AUDIT); } catch (e) { /* abaikan */ }

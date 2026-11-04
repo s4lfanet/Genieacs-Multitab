@@ -164,13 +164,19 @@ function createPortal(deps) {
 }
 
 // ---------- HTTP ----------
+function isLoopback(a) { return a === "127.0.0.1" || a === "::1" || a === "::ffff:127.0.0.1"; }
 function startServer(portal, port, opts) {
   const page = fs.readFileSync(path.join(__dirname, "portal-page.html"), "utf8");
   const trust = !!(opts && opts.trustProxy);
   const SEC = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer",
     "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'" };
   const srv = http.createServer((q, r) => {
-    const ip = (trust && String(q.headers["cf-connecting-ip"] || q.headers["x-forwarded-for"] || "").split(",")[0].trim()) || q.socket.remoteAddress || "?";
+    // IP asli pelanggan dari header proxy HANYA dipercaya bila sambungan datang dari loopback (cloudflared/reverse proxy lokal);
+    // klien LAN yang menyambung langsung ke port ini tidak bisa memalsukan IP lewat header.
+    const peer = q.socket.remoteAddress || "?";
+    const viaProxy = trust && isLoopback(peer);
+    const fwd = viaProxy ? String(q.headers["cf-connecting-ip"] || q.headers["x-forwarded-for"] || "").split(",")[0].trim() : "";
+    const ip = (/^[0-9a-fA-F:.]{3,45}$/.test(fwd) && fwd) || peer;
     const send = (code, body, type) => { r.writeHead(code, Object.assign({ "Content-Type": type || "application/json; charset=utf-8" }, SEC)); r.end(typeof body === "string" ? body : JSON.stringify(body)); };
     const url = (q.url || "/").split("?")[0];
     if (q.method === "GET" && (url === "/" || url === "/mywifi" || url === "/index.html")) return send(200, page, "text/html; charset=utf-8");
@@ -221,5 +227,5 @@ async function main() {
   log("Portal WiFi pelanggan di port " + port + (settings().enabled ? "" : " (NONAKTIF: set portal.enabled = 'true' di Admin -> Config)"));
 }
 
-module.exports = { createPortal, startServer, normPhone, tagPhone };
+module.exports = { createPortal, startServer, normPhone, tagPhone, isLoopback };
 if (require.main === module) main().catch((e) => { log("FATAL", e.stack || e.message); process.exit(1); });
