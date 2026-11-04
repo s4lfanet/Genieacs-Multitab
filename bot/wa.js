@@ -351,6 +351,12 @@ function publishState() {
 }
 
 function startTimers() {
+  let draining = false;
+  setInterval(() => {   // kirim OTP portal pelanggan yang menunggu di outbox (lihat core.outboxPush)
+    if (draining || !waState.connected || !sockRef) return;
+    draining = true;
+    core.outboxDrain((to, text) => sockRef.sendMessage(to + "@s.whatsapp.net", { text })).catch((e) => log("outbox:", e.message)).then(() => { draining = false; });
+  }, 2000);
   core.voiceStart(loadConfig);   // halaman Admin -> Voice AI (lewat Config voice.q / voice.a)
   let lastReq = String(readGenieConfig()["wabot.requestQr"] || "");
   setInterval(() => {

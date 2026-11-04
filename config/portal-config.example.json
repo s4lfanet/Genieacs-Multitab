@@ -1,0 +1,10 @@
+[
+ { "_id": "portal.enabled", "value": "'false'" },
+ { "_id": "portal.port", "value": "3020" },
+ { "_id": "portal.brand", "value": "'WiFi Pelanggan'" },
+ { "_id": "portal.csNumber", "value": "''" },
+ { "_id": "portal.otp.minutes", "value": "5" },
+ { "_id": "portal.session.minutes", "value": "30" },
+ { "_id": "portal.maxActionsPerDay", "value": "10" },
+ { "_id": "portal.trustProxy", "value": "'false'" }
+]

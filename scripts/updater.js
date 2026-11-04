@@ -115,7 +115,7 @@ function pubDir() {
 function appJs(pub) {
   try { const f = fs.readdirSync(pub).filter((x) => /^app-[A-Za-z0-9]+\.js$/.test(x)); return f.length ? path.join(pub, f[0]) : ""; } catch (e) { return ""; }
 }
-const PAGES = [["peta.html", "--map"], ["bot.html", "--botpage"], ["wa.html", "--wapage"], ["status.html", "--status"], ["bridge.html", "--bridge"], ["voice.html", "--voice"]];
+const PAGES = [["peta.html", "--map"], ["bot.html", "--botpage"], ["wa.html", "--wapage"], ["status.html", "--status"], ["bridge.html", "--bridge"], ["voice.html", "--voice"], ["portal.html", "--portal"]];
 function installedFlags() {
   const pub = pubDir(), js = appJs(pub), f = [];
   if (!pub || !js) return f;
@@ -124,6 +124,7 @@ function installedFlags() {
   f.push("--update"); // layanan ini ada, jadi halaman Update selalu ikut
   if (f.indexOf("--status") < 0) f.push("--status"); // dan halaman Status (datanya dari layanan ini)
   if (f.indexOf("--bridge") < 0) f.push("--bridge"); // dan halaman Bridge (hanya bekerja bila ada ONT ZTE; tidak mengubah apa pun sendiri)
+  if (C.botdir && fs.existsSync(path.join(C.botdir, "portal.js")) && f.indexOf("--portal") < 0) f.push("--portal"); // portal pelanggan terpasang -> halaman pengaturannya ikut
   if (waFiles() && f.indexOf("--voice") < 0) f.push("--voice"); // dan halaman Voice AI bila layanan bot WA terpasang (yang menjawabnya)
   return f;
 }
@@ -164,7 +165,7 @@ function snapshot(comps) {
     const f = path.join(pub, n);
     if (fs.existsSync(f)) { fs.copyFileSync(f, path.join(prev, "ui", n)); meta.ui.push(n); } else meta.absent.push(n);
   });
-  if (comps.indexOf("wa") >= 0 && waFiles()) ["wa.js", "core.js", "wa-page.html"].forEach((n) => {
+  if (comps.indexOf("wa") >= 0 && waFiles()) ["wa.js", "core.js", "wa-page.html", "portal.js", "portal-page.html"].forEach((n) => {
     const f = path.join(C.botdir, n);
     if (fs.existsSync(f)) { fs.copyFileSync(f, path.join(prev, "wa", n)); meta.wa.push(n); }
   });
@@ -192,6 +193,8 @@ function runUi() {
 }
 function restartWa() {
   try { cp.execFileSync("systemctl", ["restart", C.waService], { timeout: 60000 }); } catch (e) { log("restart " + C.waService + " gagal: " + e.message); }
+  // portal pelanggan (bila terpasang) memakai core.js yang sama
+  if (C.botdir && fs.existsSync(path.join(C.botdir, "portal.js"))) { try { cp.execFileSync("systemctl", ["restart", "genieacs-portal"], { timeout: 60000 }); } catch (e) { log("restart genieacs-portal gagal: " + e.message); } }
 }
 async function updateWa() {
   if (!waFiles()) { log("bot WA tidak terpasang di " + (C.botdir || "-") + ", dilewati"); return; }
@@ -199,7 +202,8 @@ async function updateWa() {
   if (sha256(path.join(src, "package.json")) !== sha256(path.join(C.botdir, "package.json")))
     throw new Error("package.json bot WA berubah di versi baru; jalankan scripts/setup-wa-bot.sh secara manual");
   const own = fs.statSync(C.botdir); let changed = 0;
-  ["wa.js", "core.js", "wa-page.html"].forEach((n) => {
+  const hasPortal = fs.existsSync(path.join(C.botdir, "portal.js"));   // portal pelanggan hanya diperbarui bila sudah dipasang (setup-portal.sh)
+  ["wa.js", "core.js", "wa-page.html"].concat(hasPortal ? ["portal.js", "portal-page.html"] : []).forEach((n) => {
     if (sha256(path.join(src, n)) === sha256(path.join(C.botdir, n))) return;
     const d = path.join(C.botdir, n); fs.copyFileSync(path.join(src, n), d); try { fs.chownSync(d, own.uid, own.gid); } catch (e) { /* abaikan */ } changed++;
   });
