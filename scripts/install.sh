@@ -3,7 +3,7 @@
 #
 # Yang dipasang secara default (aman, tidak mengubah setelan ONT):
 #   - Tampilan UI multi-tab: semua key Config ui.* (DIGANTI seluruhnya) + branding.* (jika belum ada)
-#   - Virtual Parameters (31 VP)
+#   - Virtual Parameters (32 VP)
 #   - Provisions "bootstrap" dan "default" + preset bootstrap/default (discovery + trigger
 #     VirtualParameters, tidak mengubah setelan ONT).
 #   - Provision yang MENGUBAH ONT (inform2, useradmin2, remoteweb, nokia_pppoe) TIDAK dipasang

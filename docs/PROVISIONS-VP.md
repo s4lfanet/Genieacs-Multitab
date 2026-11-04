@@ -6,6 +6,7 @@ Semua VP mengembalikan nilai untuk merk apa pun. Kalau parameter tidak ada, VP m
 
 | VP | Isi | Bisa diubah |
 |---|---|---|
+| `TXPower` | Daya optik **TX** (dBm), lintas merek (ZTE, Huawei, FiberHome, Nokia, C-Data, CT-COM/CMCC, CU). Dibaca aplikasi Android ([ANDROID-APP.md](ANDROID-APP.md)) | – |
 | `RXPower` | Daya optik RX (dBm) + kualitas. Huawei, ZTE, FiberHome, CT-COM/CMCC/CU, Nokia (`X_ALU_OntOpticalParam`), C-Data (`XponInterface`) | – |
 | `redaman` | RX power (angka dBm) untuk kolom/filter | – |
 | `gettemp` | Suhu transceiver (°C), lintas merk | – |
