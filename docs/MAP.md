@@ -27,3 +27,7 @@ Lalu Ctrl+F5 di browser. Skrip ini mengubah **1 file** tampilan GenieACS (`publi
 
 1. **📡 ODP** → "+ ODP baru" → isi ID, nama, kapasitas → "Tandai di peta" → klik lokasi.
 2. **🗺 Peta** → pilih pelanggan (yang belum dipetakan tampil di atas) → isi nama/ODP → "Tandai di peta".
+
+## Sinkron dengan aplikasi Android (tag `LOC_` / `ODP_`)
+
+Aplikasi Android `Genieacs.apk` (Alijaya) menyimpan lokasi pelanggan sebagai **tag device**: `LOC_<lat×1e6>_<lng×1e6>` dan `ODP_<nama>_<lat×1e6>_<lng×1e6>`. Halaman Peta membaca tag itu (ONT yang belum ada di `peta.data` tampil dengan label "Dari aplikasi"), punya tombol **Impor dari aplikasi Android**, dan kotak **Sinkronkan ke tag device** (bawaan aktif) yang membuat simpan/pindah/hapus lokasi dan ODP juga memperbarui tag tersebut. Tag lain tidak disentuh. Detail dan batasannya: [ANDROID-APP.md](ANDROID-APP.md).

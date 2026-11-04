@@ -53,6 +53,7 @@ button{font:inherit}
 .dark .leaflet-control-attribution a{color:var(--pri)}
 .dark .leaflet-tooltip{background:var(--surface);color:var(--fg);border-color:var(--bd)}
 @media (max-width:640px){body{flex-direction:column}#side{width:100%;max-width:none;height:55%}}
+.sy{display:flex;gap:6px;align-items:flex-start;font-size:12px;color:var(--mut);margin-top:8px;line-height:1.35}.sy input{width:auto;flex:none;margin:2px 0 0;padding:0}.sy span{flex:1;min-width:0}
 </style>
 </head>
 <body>
@@ -63,6 +64,8 @@ button{font:inherit}
     <div class="seg"><button id="tOnt" class="on">ONT</button><button id="tOdp">ODP</button></div>
     <div class="lg"><span><i style="background:#16a34a"></i>Online</span><span><i style="background:#d97706"></i>Redaman lemah</span><span><i style="background:#dc2626"></i>Offline</span><span><i style="background:#6b7280"></i>Tanpa data</span><span><i style="background:#2563eb;border-radius:2px"></i>ODP</span></div>
     <button id="gps" class="btn full">Lokasi saya (GPS)</button>
+    <label class="sy"><input type="checkbox" id="sync"><span>Sinkronkan ke tag device (dibaca aplikasi Android Genieacs.apk): LOC_/ODP_</span></label>
+    <button id="imp" class="btn full" style="display:none;margin-top:8px"></button>
   </div>
   <div id="msg"></div>
   <div id="list"></div>
@@ -137,6 +140,44 @@ function posRow(cb){
 // ---- data: API GenieACS sendiri (sama-asal, memakai cookie login GenieACS) ----
 // ONT dibaca dari /api/devices (hanya GET). Lokasi & ODP disimpan di satu key Config "peta.data"
 // (JSON -> base64 dalam kutip tunggal, supaya tetap ekspresi Config yang valid).
+/*TAGS*/
+// Format tag aplikasi Android (Genieacs.apk, Alijaya): lokasi pelanggan disimpan sebagai TAG di device.
+//   LOC_<lat*1e6>_<lng*1e6>            mis. LOC_-6123456_108345678   (juga dikenali: LOC:lat,lng  /  LOC-...)
+//   ODP_<nama>_<lat*1e6>_<lng*1e6>     atau ODP_<nama> (tanpa koordinat)   (juga: ODP:nama@lat,lng)
+// Nama ODP dibersihkan oleh aplikasi: spasi -> "-", karakter selain [A-Za-z0-9-_] dibuang.
+function decodeTagKey(k){ // kunci UI API "Tags.<nama>" (nama disandi: encodeURIComponent lalu "%" -> "0x") -> nama tag
+  if(String(k).indexOf("Tags.")!==0)return null;
+  try{return decodeURIComponent(k.slice(5).replace(/0x(?=[0-9A-Z]{2})/g,"%"))}catch(e){return null}
+}
+function tagsFrom(d){var o=[];Object.keys(d).forEach(function(k){var t=decodeTagKey(k);if(t)o.push(t)});return o}
+function validLL(lat,lng){return isFinite(lat)&&isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180&&!(lat===0&&lng===0)}
+function micro(v){return /^-?\d{4,}$/.test(v)?Number(v)/1e6:NaN}
+function parseLoc(t){
+  var m=/^LOC([:_\-])(.*)$/i.exec(String(t));if(!m)return null;
+  var r=m[2],a;
+  if(m[1]===":"||r.indexOf(",")>=0){a=r.split(",");var la=Number(a[0]),ln=Number(a[1]);return a.length===2&&validLL(la,ln)?{lat:la,lng:ln}:null}
+  a=r.split("_");
+  if(a.length!==2)return null;
+  var lat=micro(a[0]),lng=micro(a[1]);
+  if(!validLL(lat,lng)){lat=Number(a[0]);lng=Number(a[1])}   // desimal dengan "_" sebagai pemisah
+  return validLL(lat,lng)?{lat:lat,lng:lng}:null;
+}
+function parseOdp(t){
+  var m=/^ODP([:_\-])(.*)$/i.exec(String(t));if(!m||!m[2])return null;
+  var r=m[2];
+  var at=r.lastIndexOf("@");
+  if(at>0){var c=r.slice(at+1).split(",");var la=Number(c[0]),ln=Number(c[1]);return {name:r.slice(0,at),lat:validLL(la,ln)?la:null,lng:validLL(la,ln)?ln:null}}
+  var a=r.split("_");
+  if(a.length>=3){var lat=micro(a[a.length-2]),lng=micro(a[a.length-1]);
+    if(validLL(lat,lng))return {name:a.slice(0,a.length-2).join("_"),lat:lat,lng:lng}}
+  return {name:r,lat:null,lng:null};
+}
+function odpClean(n){return String(n==null?"":n).trim().replace(/ /g,"-").replace(/[^a-zA-Z0-9\-_]/g,"")}
+function encLoc(lat,lng){return "LOC_"+Math.round(lat*1e6)+"_"+Math.round(lng*1e6)}
+function encOdp(name,lat,lng){var n=odpClean(name);return lat!=null&&lng!=null&&validLL(lat,lng)?"ODP_"+n+"_"+Math.round(lat*1e6)+"_"+Math.round(lng*1e6):"ODP_"+n}
+function isGeoTag(t){return /^(LOC|ODP)[:_\-]/i.test(String(t))}
+function appInfo(tags){var o={loc:null,odp:null};tags.forEach(function(t){if(!o.loc){var l=parseLoc(t);if(l)o.loc=l}if(!o.odp){var p=parseOdp(t);if(p&&p.name)o.odp=p}});return o}
+/*ENDTAGS*/
 var CFG="peta.data";
 function api(method,path,body){
   return fetch(path,{method:method,credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
@@ -159,18 +200,33 @@ function mutate(fn){return readStore().then(function(s){var e=fn(s);if(e)throw n
 function num(v,lo,hi){var n=Number(v);return isFinite(n)&&n>=lo&&n<=hi?n:null}
 function val(d,k){var x=d[k];return x&&x.value&&x.value[0]!=null?x.value[0]:null}
 
-var PROJ=["DeviceID.ID","DeviceID.SerialNumber","DeviceID.ProductClass","Events.Inform","VirtualParameters.pppoeUsername","VirtualParameters.RXPower","VirtualParameters.redaman"].join(",");
+var PROJ=["DeviceID.ID","DeviceID.SerialNumber","DeviceID.ProductClass","Events.Inform","VirtualParameters.pppoeUsername","VirtualParameters.RXPower","VirtualParameters.redaman","Tags"].join(",");
 function load(){
   return Promise.all([api("GET","/api/devices/?projection="+encodeURIComponent(PROJ)),readStore()]).then(function(r){
     var devs=r[0]||[],st=r[1],now=Date.now();
+    // lokasi dari tag aplikasi Android: dipakai bila device belum punya entri di peta.data (peta.data tetap sumber utama)
+    var odpBy={},fromApp={};
+    Object.keys(st.odps).forEach(function(k){odpBy[odpClean(k)]=k;if(st.odps[k].name)odpBy[odpClean(st.odps[k].name)]=k});
     state.devices=devs.map(function(d){
       var id=val(d,"DeviceID.ID")||d._id,li=val(d,"Events.Inform"),t=typeof li==="number"?li:Date.parse(li)||0;
       var m=String(val(d,"VirtualParameters.RXPower")!=null?val(d,"VirtualParameters.RXPower"):val(d,"VirtualParameters.redaman")!=null?val(d,"VirtualParameters.redaman"):"").match(/-?\d+(\.\d+)?/);
+      var tags=tagsFrom(d),app=appInfo(tags),loc=st.devices[id]||null;
+      if(!loc&&app.loc){
+        var oid="";
+        if(app.odp){
+          oid=odpBy[odpClean(app.odp.name)]||"";
+          if(!oid&&app.odp.lat!=null){oid=odpClean(app.odp.name);if(oid){if(!fromApp[oid])fromApp[oid]={name:app.odp.name,lat:app.odp.lat,lng:app.odp.lng,capacity:8,notes:"dari tag aplikasi Android",fromApp:true};odpBy[oid]=oid}}
+        }
+        loc={name:"",lat:app.loc.lat,lng:app.loc.lng,odp:oid,notes:"",fromApp:true};
+      }
       return {id:id,sn:val(d,"DeviceID.SerialNumber")||"",model:val(d,"DeviceID.ProductClass")||"",pppoe:val(d,"VirtualParameters.pppoeUsername")||"",
-        rx:m?Number(m[0]):null,online:t>0&&now-t<10*60*1000,loc:st.devices[id]||null};
+        rx:m?Number(m[0]):null,online:t>0&&now-t<10*60*1000,loc:loc,tags:tags};
     });
-    var used={};Object.keys(st.devices).forEach(function(k){var o=st.devices[k].odp;if(o)used[o]=(used[o]||0)+1});
-    state.odps=Object.keys(st.odps).map(function(id){return Object.assign({id:id,used:used[id]||0},st.odps[id])});
+    var allOdps=Object.assign({},fromApp,st.odps),used={};
+    state.devices.forEach(function(x){if(x.loc&&x.loc.odp)used[x.loc.odp]=(used[x.loc.odp]||0)+1});
+    state.odps=Object.keys(allOdps).map(function(id){return Object.assign({id:id,used:used[id]||0},allOdps[id])});
+    var nApp=state.devices.filter(function(x){return x.loc&&x.loc.fromApp}).length,nOdp=state.odps.filter(function(o){return o.fromApp}).length,im=$("imp");
+    if(nApp||nOdp){im.style.display="block";im.textContent="Impor dari aplikasi Android: "+nApp+" titik ONT, "+nOdp+" ODP"}else im.style.display="none";
     draw();
     if(!state.fitted){ // pertama kali: zoom ke titik yang sudah dipetakan (bukan seluruh Indonesia)
       var pts=[];state.devices.forEach(function(x){if(x.loc)pts.push([x.loc.lat,x.loc.lng])});state.odps.forEach(function(o){pts.push([o.lat,o.lng])});
@@ -213,7 +269,7 @@ function list(){
     rows.slice(0,300).forEach(function(d){
       var kids=[el("span",{"class":"dot",style:"background:"+rxColor(d)}),
         el("span",{"class":"tx"},[el("span",{"class":"nm",text:title(d)}),
-          el("span",{"class":"sub",text:(d.loc?"":"Belum dipetakan · ")+(d.model||d.sn||"-")})])];
+          el("span",{"class":"sub",text:(d.loc?(d.loc.fromApp?"Dari aplikasi · ":""):"Belum dipetakan · ")+(d.model||d.sn||"-")})])];
       var b=rxBadge(d);if(b)kids.push(b);
       box.appendChild(el("div",{"class":"it"+(d.loc?"":" new")+(state.sel&&state.sel.id===d.id?" sel":""),onclick:function(){select("ont",d.id)}},kids));
     });
@@ -238,6 +294,7 @@ function select(kind,id){
     var d=state.devices.filter(function(x){return x.id===id})[0];if(!d)return;
     var l=d.loc||{};
     f.appendChild(el("h2",{text:d.pppoe||d.sn||"ONT"}));f.appendChild(el("div",{"class":"id",text:d.id}));
+    if(l.fromApp)f.appendChild(el("div",{"class":"sub",style:"white-space:normal;margin:6px 0",text:"Titik ini berasal dari tag aplikasi Android (LOC_…). Tekan Simpan untuk menyimpannya juga di peta.data."}));
     field("Nama pelanggan","fName",l.name).forEach(function(x){f.appendChild(x)});
     var sl=el("select",{id:"fOdp"},[el("option",{value:"",text:"- tanpa ODP -"})].concat(state.odps.map(function(o){var op=el("option",{value:o.id,text:o.name+" ("+o.used+"/"+o.capacity+")"});if(o.id===l.odp)op.selected=true;return op})));
     f.appendChild(el("label",{text:"ODP"}));f.appendChild(sl);
@@ -245,7 +302,7 @@ function select(kind,id){
     f.appendChild(el("div",{"class":"row"},[
       el("button",{"class":"btn pri",text:l.lat!=null?"Pindah lokasi":"Tandai di peta",onclick:function(){pick(function(ll){saveOnt(d,ll.lat,ll.lng)})}}),
       el("button",{"class":"btn",text:"Simpan",onclick:function(){if(l.lat==null)return say("Tandai lokasi dulu");saveOnt(d,l.lat,l.lng)}}),
-      el("button",{"class":"btn bad",text:"Hapus",onclick:function(){if(confirm("Hapus lokasi ONT ini?"))mutate(function(st){delete st.devices[d.id]}).then(load).then(close).catch(function(e){say(e.message)})}})]));
+      el("button",{"class":"btn bad",text:"Hapus",onclick:function(){if(confirm("Hapus lokasi ONT ini?"))mutate(function(st){delete st.devices[d.id]}).then(function(){return tagSync(d,null,null,"")}).then(load).then(close).catch(function(e){say(e.message)})}})]));
     f.appendChild(posRow(function(ll){saveOnt(d,ll.lat,ll.lng)}));
     if(l.lat!=null)map.setView([l.lat,l.lng],Math.max(map.getZoom(),17));
   }else{
@@ -258,16 +315,48 @@ function select(kind,id){
     var idv=function(){return id||$("oId").value.trim()};
     var body=function(ll){return {name:$("oName").value,capacity:$("oCap").value,notes:$("oNotes").value,lat:ll.lat,lng:ll.lng}};
     var putOdp=function(ll){var i=idv();if(!i)return say("ID ODP wajib");var b=body(ll),cap=num(b.capacity,1,1024);
-      mutate(function(st){st.odps[i]={name:String(b.name||"").trim().slice(0,120)||i,lat:b.lat,lng:b.lng,capacity:cap===null?8:Math.floor(cap),notes:String(b.notes||"").slice(0,500)}}).then(load).then(function(){say("ODP tersimpan")}).catch(function(e){say(e.message)})};
+      mutate(function(st){st.odps[i]={name:String(b.name||"").trim().slice(0,120)||i,lat:b.lat,lng:b.lng,capacity:cap===null?8:Math.floor(cap),notes:String(b.notes||"").slice(0,500)}}).then(function(){return odpSync(i,{name:String(b.name||"").trim()||i,lat:b.lat,lng:b.lng})}).then(load).then(function(){say("ODP tersimpan"+($("sync").checked?" (tag ONT terhubung ikut diperbarui)":""))}).catch(function(e){say(e.message)})};
     f.appendChild(el("div",{"class":"row"},[
       el("button",{"class":"btn pri",text:o.lat!=null?"Pindah lokasi":"Tandai di peta",onclick:function(){pick(putOdp)}}),
       el("button",{"class":"btn",text:"Simpan",onclick:function(){if(o.lat==null)return say("Tandai lokasi dulu");putOdp({lat:o.lat,lng:o.lng})}}),
-      el("button",{"class":"btn bad",text:"Hapus",onclick:function(){if(id&&confirm("Hapus ODP ini?"))mutate(function(st){delete st.odps[id];Object.keys(st.devices).forEach(function(k){if(st.devices[k].odp===id)st.devices[k].odp=""})}).then(load).then(close).catch(function(e){say(e.message)})}})]));
+      el("button",{"class":"btn bad",text:"Hapus",onclick:function(){if(id&&confirm("Hapus ODP ini?"))mutate(function(st){delete st.odps[id];Object.keys(st.devices).forEach(function(k){if(st.devices[k].odp===id)st.devices[k].odp=""})}).then(function(){return odpSync(id,null)}).then(load).then(close).catch(function(e){say(e.message)})}})]));
     f.appendChild(posRow(putOdp));
     if(o.lat!=null)map.setView([o.lat,o.lng],Math.max(map.getZoom(),17));
   }
   list();
 }
+// Tulis tag lokasi ke device lewat UI API (POST /api/devices/<id>/tags, body {tag:true|false}); hanya bila kotak sinkron dicentang
+function tagWrite(dev,body){
+  if(!Object.keys(body).length)return Promise.resolve();
+  return api("POST","/api/devices/"+encodeURIComponent(dev.id)+"/tags",body).catch(function(e){throw new Error("Tag device gagal ditulis ("+e.message+"). peta.data sudah tersimpan; matikan sinkron tag atau periksa izin.")});
+}
+function tagSync(d,lat,lng,odpId){
+  if(!$("sync").checked)return Promise.resolve();
+  var body={},odp=odpId?state.odps.filter(function(o){return o.id===odpId})[0]:null;
+  (d.tags||[]).forEach(function(t){if(isGeoTag(t))body[t]=false});          // buang tag lokasi lama
+  if(lat!=null&&lng!=null)body[encLoc(lat,lng)]=true;
+  if(lat!=null&&odp)body[encOdp(odp.name||odp.id,odp.lat,odp.lng)]=true;
+  return tagWrite(d,body);
+}
+function odpSync(odpId,odp){
+  if(!$("sync").checked)return Promise.resolve();
+  var linked=state.devices.filter(function(x){return x.loc&&x.loc.odp===odpId}).slice(0,200),chain=Promise.resolve();
+  linked.forEach(function(x){chain=chain.then(function(){
+    var body={};(x.tags||[]).forEach(function(t){if(/^ODP[:_\-]/i.test(t))body[t]=false});
+    if(odp)body[encOdp(odp.name||odpId,odp.lat,odp.lng)]=true;
+    return tagWrite(x,body)})});
+  return chain;
+}
+$("imp").onclick=function(){
+  var devs=state.devices.filter(function(x){return x.loc&&x.loc.fromApp}),odps=state.odps.filter(function(o){return o.fromApp});
+  if(!confirm("Impor "+devs.length+" titik ONT dan "+odps.length+" ODP dari tag aplikasi Android ke peta.data?\nTag di ONT tidak diubah."))return;
+  mutate(function(st){
+    devs.forEach(function(x){if(!st.devices[x.id])st.devices[x.id]={name:"",lat:x.loc.lat,lng:x.loc.lng,odp:x.loc.odp||"",notes:"",updated:new Date().toISOString()}});
+    odps.forEach(function(o){if(!st.odps[o.id])st.odps[o.id]={name:String(o.name).slice(0,120),lat:o.lat,lng:o.lng,capacity:o.capacity||8,notes:"dari tag aplikasi Android"}});
+  }).then(load).then(function(){say("Impor selesai: "+devs.length+" ONT, "+odps.length+" ODP")}).catch(function(e){say(e.message)});
+};
+try{$("sync").checked=localStorage.getItem("peta.sync")!=="0"}catch(e){$("sync").checked=true}
+$("sync").onchange=function(){try{localStorage.setItem("peta.sync",$("sync").checked?"1":"0")}catch(e){}};
 function close(){state.sel=null;$("edit").style.display="none";$("edit").textContent="";list()}
 function saveOnt(d,lat,lng){
   var odp=$("fOdp").value,name=$("fName").value,notes=$("fNotes").value;
@@ -275,7 +364,7 @@ function saveOnt(d,lat,lng){
     if(num(lat,-90,90)===null||num(lng,-180,180)===null)return "lat/lng tidak valid";
     if(odp&&!st.odps[odp])return "ODP tidak ada";
     st.devices[d.id]={name:String(name).trim().slice(0,120),lat:lat,lng:lng,odp:odp,notes:String(notes).slice(0,500),updated:new Date().toISOString()};
-  }).then(load).then(function(){say("Tersimpan")}).catch(function(e){say(e.message)});
+  }).then(function(){return tagSync(d,lat,lng,odp)}).then(load).then(function(){say("Tersimpan"+($("sync").checked?" (tag aplikasi Android ikut diperbarui)":""))}).catch(function(e){say(e.message)});
 }
 function pick(cb){
   var h=$("hint");h.textContent="Klik lokasi di peta (Esc batal)";h.style.display="block";map.getContainer().style.cursor="crosshair";

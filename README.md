@@ -57,7 +57,7 @@ Panduan lengkap ada di **[docs/INSTALL.md](docs/INSTALL.md)**.
 | [docs/BRANDING.md](docs/BRANDING.md) | Ganti logo, judul, warna header |
 | [docs/MAP.md](docs/MAP.md) | Peta pelanggan & ODP di sidebar Admin (opsional, tanpa service/port tambahan) |
 | [docs/BRIDGE-ZTE.md](docs/BRIDGE-ZTE.md) | Bridge ZTE F679D/F670L (WAN bridge + LAN-bind) dari sidebar Admin lewat TR-069, karena web admin ONT-nya tidak punya menu bridge |
-| [docs/ANDROID-APP.md](docs/ANDROID-APP.md) | Aplikasi Android `Genieacs.apk` (klien NBI): isinya, kecocokan dengan Multitab, cara menghubungkan, dan **peringatan NBI tanpa autentikasi** |
+| [docs/ANDROID-APP.md](docs/ANDROID-APP.md) | Aplikasi Android `Genieacs.apk` (Alijaya): kecocokan dengan Multitab, `scripts/app-compat.sh` (VP WlanSSID/MacAddress/TXPower), sinkron Peta lewat tag, dan **peringatan: NBI 7557 membocorkan hash akun UI** |
 | [docs/CLOUDFLARE-TUNNEL.md](docs/CLOUDFLARE-TUNNEL.md) | Akses publik lewat Cloudflare Tunnel: subdomain untuk UI dan subdomain terpisah untuk API (proxy NBI berpassword), tanpa membuka port di router |
 | [docs/TEMA.md](docs/TEMA.md) | 9 tema tampilan (terang & gelap), cara kerja, dan cara menambah tema |
 | [docs/UPDATE.md](docs/UPDATE.md) | Update dari sidebar Admin (periksa, pasang, rollback tanpa SSH) dan halaman Status layanan UI/CWMP/NBI/FS (layanan updater + model keamanan) |
