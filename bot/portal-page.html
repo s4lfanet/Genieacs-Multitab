@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Portal WiFi Pelanggan</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--fg:#14232b;--mut:#66747d;--bd:#dfe5e9;--pri:#046380;--on:#fff;--ok:#16803c;--bad:#c62828;--soft:#eaf1f4}
+@media (prefers-color-scheme:dark){:root{--bg:#10171b;--card:#182026;--fg:#e8eef1;--mut:#92a1aa;--bd:#2a353c;--pri:#3aa5c6;--on:#05222b;--ok:#4cc27a;--bad:#ef7676;--soft:#202b32}}
+*{box-sizing:border-box}html,body{margin:0}
+body{font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;display:flex;justify-content:center;padding:20px 16px}
+.w{width:100%;max-width:440px}
+h1{font-size:20px;margin:6px 0 2px}.sub{color:var(--mut);margin:0 0 16px;font-size:13px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px;margin-bottom:14px}
+.c h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut);margin:0 0 12px}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input{width:100%;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:11px 12px}
+input:focus{outline:2px solid color-mix(in srgb,var(--pri) 45%,transparent);border-color:var(--pri)}
+button{font:inherit;font-weight:600;border:1px solid var(--pri);background:var(--pri);color:var(--on);border-radius:10px;padding:11px 16px;cursor:pointer;width:100%;margin-top:14px}
+button.sec{background:transparent;color:var(--pri)}button.dng{background:transparent;color:var(--bad);border-color:var(--bad)}
+button[disabled]{opacity:.55;cursor:wait}
+.m{padding:10px 12px;border-radius:10px;margin-top:12px;font-size:13px}
+.m.ok{background:color-mix(in srgb,var(--ok) 15%,transparent)}.m.er{background:color-mix(in srgb,var(--bad) 15%,transparent)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd)}.row:last-child{border:0}
+.row span:first-child{color:var(--mut)}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700}
+.pill.on{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}.pill.off{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.ss{border-top:1px solid var(--bd);padding-top:12px;margin-top:12px}.ss:first-of-type{border:0;padding:0;margin:0}
+.ss b{font-size:14px}.hid{display:none}
+.cs{display:block;text-align:center;margin-top:8px;color:var(--pri);font-size:13px}
+</style>
+</head>
+<body>
+<div class="w">
+  <h1 id="ttl">Portal WiFi</h1>
+  <p class="sub" id="sub">Atur WiFi Anda sendiri dengan aman.</p>
+
+  <div class="c" id="v1">
+    <h2>Masuk</h2>
+    <label for="ph">Nomor HP/WhatsApp yang terdaftar</label>
+    <input id="ph" type="tel" inputmode="tel" placeholder="08xxxxxxxxxx" autocomplete="tel">
+    <button id="b1">Kirim kode OTP</button>
+    <div class="m er hid" id="e1"></div>
+  </div>
+
+  <div class="c hid" id="v2">
+    <h2>Verifikasi</h2>
+    <p class="sub" style="margin-top:0">Masukkan 6 digit kode yang dikirim ke WhatsApp Anda. Berlaku beberapa menit.</p>
+    <input id="cd" type="text" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code">
+    <button id="b2">Masuk</button>
+    <button class="sec" id="b2b">Ganti nomor</button>
+    <div class="m er hid" id="e2"></div>
+  </div>
+
+  <div class="hid" id="v3">
+    <div class="c"><h2>Perangkat</h2><div id="info"></div></div>
+    <div class="c"><h2>WiFi</h2><div id="ssids"></div></div>
+    <div class="c"><h2>Lainnya</h2>
+      <button class="sec" id="rb" style="margin-top:0">Restart modem</button>
+      <button class="dng" id="lo">Keluar</button>
+      <a class="cs hid" id="cs" target="_blank" rel="noopener">Hubungi CS</a>
+    </div>
+    <div class="m hid" id="e3"></div>
+  </div>
+</div>
+<script>
+"use strict";
+function $(i){return document.getElementById(i)}
+var TOK="";try{TOK=sessionStorage.getItem("pt")||""}catch(e){}
+var PH="";
+function api(m,p,b){return fetch(p,{method:m,headers:Object.assign({"Content-Type":"application/json"},TOK?{"X-Portal-Token":TOK}:{}),body:m==="POST"?JSON.stringify(b||{}):undefined})
+  .then(function(r){return r.json().catch(function(){return{ok:false,message:"Respons tidak valid."}}).then(function(j){j._s=r.status;return j})})
+  .catch(function(){return{ok:false,message:"Tidak dapat terhubung ke server.",_s:0}})}
+function msg(id,t,ok){var e=$(id);e.textContent=t||"";e.className="m "+(ok?"ok":"er")+(t?"":" hid")}
+function show(v){["v1","v2","v3"].forEach(function(x){$(x).className=(x==="v3"?"":"c ")+(x===v?"":"hid")});$("v3").className=v==="v3"?"":"hid"}
+function busy(b,on){b.disabled=on}
+$("b1").onclick=function(){var b=this;PH=$("ph").value.trim();msg("e1","");if(!PH){msg("e1","Isi nomor HP Anda.");return}
+  busy(b,true);api("POST","/api/otp/request",{phone:PH}).then(function(j){busy(b,false);if(j.ok){show("v2");$("cd").value="";$("cd").focus();msg("e2",j.message,true)}else msg("e1",j.message)})};
+$("b2b").onclick=function(){show("v1")};
+$("b2").onclick=function(){var b=this;msg("e2","");busy(b,true);api("POST","/api/otp/verify",{phone:PH,code:$("cd").value.trim()}).then(function(j){busy(b,false);
+  if(j.ok){TOK=j.token;try{sessionStorage.setItem("pt",TOK)}catch(e){}load()}else msg("e2",j.message)})};
+function row(a,b){return "<div class='row'><span>"+a+"</span><span>"+b+"</span></div>"}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function load(){api("GET","/api/me").then(function(j){
+  if(!j.ok){TOK="";try{sessionStorage.removeItem("pt")}catch(e){}show("v1");if(j._s!==401)msg("e1",j.message);return}
+  show("v3");$("ttl").textContent=j.brand||"Portal WiFi";$("sub").textContent="Halo, atur WiFi Anda di sini.";
+  $("info").innerHTML=row("Status","<span class='pill "+(j.online?"on":"off")+"'>"+(j.online?"Online":"Offline")+"</span>")+row("Model",esc(j.model||"-"))+row("ID layanan",esc(j.pppoe||"-"))+row("Redaman",esc(j.rx||"-"));
+  var h="";j.ssids.forEach(function(w){
+    h+="<div class='ss'><b>"+esc(w.ssid)+"</b> <span class='pill "+(w.enabled?"on":"off")+"'>"+(w.enabled?"Aktif":"Mati")+"</span> <span style='color:var(--mut);font-size:12px'>"+esc(w.band||"WiFi "+w.idx)+"</span>";
+    if(w.canName)h+="<label>Nama WiFi baru</label><input id='n"+w.idx+"' maxlength='32'><button class='sec' data-k='ssid' data-i='"+w.idx+"'>Ganti nama</button>";
+    if(w.canPass)h+="<label>Sandi WiFi baru (8-63 karakter)</label><input id='p"+w.idx+"' type='password' maxlength='63' autocomplete='new-password'><button class='sec' data-k='pass' data-i='"+w.idx+"'>Ganti sandi</button>";
+    h+="</div>"});
+  $("ssids").innerHTML=h||"<p class='sub'>Tidak ada pengaturan WiFi yang tersedia.</p>";
+  if(j.cs){$("cs").href="https://wa.me/"+encodeURIComponent(String(j.cs).replace(/\D/g,""));$("cs").className="cs"}
+  document.querySelectorAll("#ssids button").forEach(function(b){b.onclick=function(){
+    var k=b.getAttribute("data-k"),i=b.getAttribute("data-i"),v=$((k==="ssid"?"n":"p")+i).value;if(!v){msg("e3","Isi nilai baru dulu.");return}
+    if(!confirm("Perangkat yang terhubung ke WiFi ini akan terputus sebentar. Lanjutkan?"))return;
+    busy(b,true);msg("e3","Mengirim perubahan…",true);api("POST","/api/wifi/"+k,{idx:i,value:v}).then(function(r){busy(b,false);msg("e3",r.message,r.ok);if(r.ok){$((k==="ssid"?"n":"p")+i).value="";if(k==="ssid")setTimeout(load,4000)}})}})})}
+$("rb").onclick=function(){if(!confirm("Restart modem? Internet terputus 2-3 menit."))return;var b=this;busy(b,true);api("POST","/api/reboot",{}).then(function(r){busy(b,false);msg("e3",r.message,r.ok)})};
+$("lo").onclick=function(){api("POST","/api/logout",{}).then(function(){TOK="";try{sessionStorage.removeItem("pt")}catch(e){}show("v1");$("ttl").textContent="Portal WiFi";msg("e1","Anda sudah keluar.",true)})};
+$("ph").addEventListener("keydown",function(e){if(e.key==="Enter")$("b1").click()});$("cd").addEventListener("keydown",function(e){if(e.key==="Enter")$("b2").click()});
+if(TOK)load();
+</script>
+</body>
+</html>

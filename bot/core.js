@@ -28,9 +28,9 @@ const SENSITIVE = /pass|key|secret|token|psk|wep|credential/i;
 // ---------- pengaturan: baca key "bot.*" (Telegram) dan "wabot.*" (WhatsApp) sekaligus ----------
 // Nilai di Config GenieACS adalah ekspresi, jadi teks ditulis dengan kutip tunggal: 'nilai'.
 function readGenieConfig() {
-  const js = "var o={}; db.config.find({_id: /^(bot|wabot)[.]/}).forEach(function(c){ o[c._id] = String(c.value); }); print(JSON.stringify(o))";
+  const js = "var o={}; db.config.find({_id: /^(bot|wabot|portal)[.]/}).forEach(function(c){ o[c._id] = String(c.value); }); print(JSON.stringify(o))";
   try {
-    const out = execFileSync(mongoBin(), ["genieacs", "--quiet", "--eval", js], { encoding: "utf8", timeout: 15000 });
+    const out = execFileSync(mongoBin(), [process.env.GENIEACS_DB || "genieacs", "--quiet", "--eval", js], { encoding: "utf8", timeout: 15000 });
     const o = JSON.parse(out.trim().split("\n").pop());
     const r = {};
     Object.keys(o).forEach((k) => {
@@ -732,6 +732,26 @@ function mongoEval(js) {
   });
 }
 const unq = (v) => { v = String(v || "").trim(); return v.length >= 2 && v[0] === "'" && v[v.length - 1] === "'" ? v.slice(1, -1) : v; };
+// Outbox pesan WhatsApp: portal pelanggan (portal.js) menitipkan OTP di Config "portal.out.<id>"; bot WA (wa.js) yang punya
+// koneksi WhatsApp mengirim lalu menghapusnya (paling banyak sekali kirim). Nomor dalam format 62xxxxxxxxxx.
+async function outboxPush(phone62, text) {
+  if (!/^[0-9]{10,15}$/.test(String(phone62))) throw new Error("nomor tidak valid");
+  const id = require("crypto").randomBytes(8).toString("hex");
+  const val = "'" + Buffer.from(JSON.stringify({ to: String(phone62), text: String(text).slice(0, 1000), ts: Date.now() })).toString("base64") + "'";
+  await mongoEval('db.config.insertOne({_id:"portal.out.' + id + '",value:' + JSON.stringify(val) + '});print("ok")');
+}
+async function outboxDrain(send) {
+  const raw = await mongoEval('var a=[];db.config.find({_id:/^portal[.]out[.]/}).limit(20).forEach(function(c){a.push([c._id,String(c.value)])});print(JSON.stringify(a))');
+  let rows = []; try { rows = JSON.parse(raw); } catch (e) { return 0; }
+  let n = 0;
+  for (const r of rows) {
+    await mongoEval('db.config.deleteOne({_id:' + JSON.stringify(r[0]) + '});print("ok")');   // hapus dulu: OTP tidak boleh terkirim dua kali
+    let m = null; try { m = JSON.parse(Buffer.from(unq(r[1]), "base64").toString("utf8")); } catch (e) { continue; }
+    if (!m || !/^[0-9]{10,15}$/.test(String(m.to)) || Date.now() - m.ts > 120000) continue;   // kedaluwarsa (>2 menit): buang
+    try { await send(m.to, m.text); n++; } catch (e) { log("outbox: kirim gagal:", e.message); }
+  }
+  return n;
+}
 function voiceStart(loadCfg) {
   let last = null, busy = false;
   const tick = async () => {
@@ -772,6 +792,6 @@ module.exports = {
   HELP, makeHelp,
   // alert
   checkAlerts,
-  // asisten suara web
-  voiceStart
+  // asisten suara web, outbox WhatsApp (portal pelanggan)
+  voiceStart, outboxPush, outboxDrain
 };

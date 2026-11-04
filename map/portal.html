@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="acs-page" content="portal">
+<title>Portal WiFi</title>
+<style>
+:root{--bg:#fff;--surface:#fff;--fg:#002f2f;--mut:#667078;--bd:#ebe0bf;--pri:#046380;--soft:#f2ebd5;--on:#fff;--ok:#16803c;--bad:#c62828;--warn:#b45309}
+*{box-sizing:border-box}html,body{margin:0}
+body{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);padding:18px 22px 32px}
+.wrap{max-width:760px}h1{font-size:20px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 16px}
+.card{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:16px}
+.card h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut);margin:0 0 12px}
+.f{display:grid;grid-template-columns:200px minmax(0,1fr);gap:8px 14px;align-items:center;margin-bottom:10px}
+.f small{grid-column:2;color:var(--mut);margin-top:-6px}
+input[type=text],input[type=number]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;width:100%}
+.btn{font:inherit;font-weight:600;border:1px solid var(--pri);background:var(--pri);color:var(--on);border-radius:10px;padding:9px 20px;cursor:pointer}
+.btn[disabled]{opacity:.5}
+code{background:var(--soft);padding:1px 6px;border-radius:6px}
+.warn{padding:11px 13px;border-radius:10px;background:color-mix(in srgb,var(--warn) 14%,transparent);margin-bottom:12px}
+#msg{margin-left:12px;color:var(--mut)}#msg.er{color:var(--bad)}#msg.ok{color:var(--ok)}
+@media (max-width:640px){.f{grid-template-columns:1fr}.f small{grid-column:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Portal WiFi pelanggan</h1>
+  <p class="sub">Pelanggan login dengan nomor HP + OTP WhatsApp, lalu mengganti nama/sandi WiFi, restart modem, dan melihat redaman, hanya untuk ONT miliknya.</p>
+  <div class="warn" id="note">Memuat…</div>
+  <div class="card">
+    <h2>Alamat untuk pelanggan</h2>
+    <div>Dalam jaringan: <code id="url"></code></div>
+    <p class="sub" style="margin:8px 0 0">Untuk internet, pasang lewat Cloudflare Tunnel/reverse proxy HTTPS ke port ini (jangan membuka NBI 7557). Panduan: <code>docs/PORTAL-WIFI.md</code>.</p>
+  </div>
+  <div class="card">
+    <h2>Pengaturan</h2>
+    <div class="f"><label for="enabled">Portal aktif</label><input id="enabled" type="checkbox"></div>
+    <div class="f"><label for="brand">Nama di halaman &amp; OTP</label><input id="brand" type="text" maxlength="40"></div>
+    <div class="f"><label for="cs">Nomor CS (62xxx)</label><input id="cs" type="text" maxlength="20"><small>Tombol "Hubungi CS" di portal. Kosong = disembunyikan.</small></div>
+    <div class="f"><label for="otpm">OTP berlaku (menit)</label><input id="otpm" type="number" min="1" max="15"></div>
+    <div class="f"><label for="sess">Sesi login (menit)</label><input id="sess" type="number" min="5" max="120"></div>
+    <div class="f"><label for="maxa">Maks perubahan / hari / pelanggan</label><input id="maxa" type="number" min="1" max="50"></div>
+    <div class="f"><label for="trust">Di belakang proxy/tunnel</label><input id="trust" type="checkbox"><small>Aktifkan HANYA bila portal diakses lewat Cloudflare Tunnel/reverse proxy tepercaya; dipakai untuk membaca IP asli pelanggan (batas laju). Bila aktif padahal portal terbuka langsung, IP bisa dipalsukan.</small></div>
+    <button class="btn" id="save">Simpan</button><span id="msg"></span>
+  </div>
+</div>
+<script>
+"use strict";
+(function(){
+  var M={"--bg":"--acs-bg","--surface":"--acs-surface","--fg":"--acs-text","--mut":"--acs-muted","--bd":"--acs-border","--pri":"--acs-accent","--soft":"--acs-soft","--on":"--acs-on-accent","--ok":"--acs-ok","--bad":"--acs-bad","--warn":"--acs-warn"};
+  function ap(){var r=document.documentElement;try{var p=parent.document.documentElement,cs=parent.getComputedStyle(p);
+    Object.keys(M).forEach(function(k){var v=cs.getPropertyValue(M[k]).trim();if(v)r.style.setProperty(k,v)});}catch(e){}}
+  ap();try{new MutationObserver(ap).observe(parent.document.documentElement,{attributes:true})}catch(e){}
+})();
+function $(i){return document.getElementById(i)}
+function api(method,path,body){
+  return fetch(path,{method:method,credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.text().then(function(t){
+      if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
+      if(!r.ok)throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+      return t?JSON.parse(t):null})});
+}
+function plain(v){v=String(v==null?"":v).trim();return v.length>=2&&v[0]==="'"&&v[v.length-1]==="'"?v.slice(1,-1):v}
+var KEYS={enabled:"portal.enabled",brand:"portal.brand",cs:"portal.csNumber",otpm:"portal.otp.minutes",sess:"portal.session.minutes",maxa:"portal.maxActionsPerDay",trust:"portal.trustProxy"};
+var BOOL={enabled:1,trust:1},NUM={otpm:1,sess:1,maxa:1};
+function load(){
+  api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "portal.%"')).then(function(rows){
+    var v={};(rows||[]).forEach(function(r){v[r._id]=plain(r.value)});
+    if(!Object.keys(v).length){$("note").textContent="Portal belum dipasang di server. Jalankan: bash scripts/setup-portal.sh";$("save").disabled=true;return}
+    $("save").disabled=false;
+    Object.keys(KEYS).forEach(function(k){var e=$(k);if(!e)return;var x=v[KEYS[k]];if(x===undefined)return;if(BOOL[k])e.checked=String(x).toLowerCase()==="true";else e.value=x});
+    var on=String(v["portal.enabled"]).toLowerCase()==="true",port=v["portal.port"]||"3020";
+    $("url").textContent=location.protocol+"//"+location.hostname+":"+port+"/";
+    $("note").textContent=on?"Portal AKTIF. Pastikan bot WhatsApp tersambung (menu Bot WA) karena OTP dikirim lewat sana, dan tag nomor pelanggan sudah diisi (wa:08xxx) di ONT.":"Portal NONAKTIF. Centang \"Portal aktif\" dan simpan setelah tag nomor pelanggan terisi dan bot WA tersambung."
+  }).catch(function(e){$("note").textContent="Gagal memuat: "+e.message})
+}
+$("save").onclick=function(){
+  var ops=[];Object.keys(KEYS).forEach(function(k){var e=$(k);if(!e)return;var val;
+    if(BOOL[k])val="'"+(e.checked?"true":"false")+"'";else if(NUM[k]){var n=parseInt(e.value,10);if(!isFinite(n))return;val=String(n)}else val="'"+String(e.value).replace(/['\\]/g,"")+"'";
+    ops.push(api("PUT","/api/config/"+KEYS[k],{_id:KEYS[k],value:val}))});
+  $("msg").className="";$("msg").textContent="Menyimpan…";
+  Promise.all(ops).then(function(){$("msg").className="ok";$("msg").textContent="Tersimpan (berlaku dalam ±20 detik).";load()}).catch(function(e){$("msg").className="er";$("msg").textContent=e.message})
+};
+load();
+</script>
+</body>
+</html>

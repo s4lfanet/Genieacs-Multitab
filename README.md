@@ -63,6 +63,7 @@ Panduan lengkap ada di **[docs/INSTALL.md](docs/INSTALL.md)**.
 | [docs/UPDATE.md](docs/UPDATE.md) | Update dari sidebar Admin (periksa, pasang, rollback tanpa SSH) dan halaman Status layanan UI/CWMP/NBI/FS (layanan updater + model keamanan) |
 | [scripts/diagnose.sh](scripts/diagnose.sh) | Audit baca-saja server: layanan, file tampilan, connection request, preset berbahaya (jalankan lalu kirim hasilnya bila ada masalah) |
 | [docs/TELEGRAM-BOT.md](docs/TELEGRAM-BOT.md) | Bot Telegram, perintah, asisten AI (multi-provider), dan **Pengaturan Bot** di sidebar Admin (token, redaman maks, batas online, dll tanpa SSH) |
+| [docs/PORTAL-WIFI.md](docs/PORTAL-WIFI.md) | Portal mandiri WiFi pelanggan: login nomor HP + OTP WhatsApp, ganti nama/sandi WiFi, restart (terbatas ke ONT sendiri; tanpa mode tanpa-OTP) |
 | [docs/VOICE-AI.md](docs/VOICE-AI.md) | Menu Voice AI: tanya asisten AI dengan suara/ketikan (memakai bot WA sebagai penjawab, tanpa port tambahan) |
 | [docs/WHATSAPP-BOT.md](docs/WHATSAPP-BOT.md) | Bot WhatsApp (opsional) — baca risikonya sebelum pasang |
 | [docs/BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md) | Backup/restore config & database |

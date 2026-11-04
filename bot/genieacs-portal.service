@@ -1,0 +1,21 @@
+[Unit]
+Description=GenieACS Portal Mandiri WiFi pelanggan
+After=network-online.target genieacs-nbi.service
+Wants=network-online.target
+
+[Service]
+User=USERNAME
+Group=USERNAME
+WorkingDirectory=/home/USERNAME/genieacs-bot
+Environment=HOME=/home/USERNAME
+ExecStart=/usr/bin/env node /home/USERNAME/genieacs-bot/portal.js
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/USERNAME/genieacs-bot
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
