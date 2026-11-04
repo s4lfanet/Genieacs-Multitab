@@ -1,6 +1,6 @@
 # Aplikasi Android "Genieacs.apk" (Alijaya) dan cara memakainya dengan Multitab
 
-`Genieacs.apk` adalah klien Android untuk GenieACS (paket `com.genieacs.client`, ditandatangani **Alijaya Digital**, bukan buatan repo ini). Isi dokumen ini berasal dari **analisis statis** APK versi terbaru (`Genieacs (2).apk`: manifest, string, kode smali, dan satu berkas HTML di dalamnya) serta pembacaan repo [alijayanet/genieacs-multitab-mod](https://github.com/alijayanet/genieacs-multitab-mod). **Aplikasinya belum dijalankan**; bagian server yang ditulis di sini (VP, deklarasi `default`, sinkron tag Peta) diuji di sisi Multitab, bukan lewat aplikasi itu.
+`Genieacs.apk` adalah klien Android untuk GenieACS (paket `com.genieacs.client`, ditandatangani **Alijaya Digital**, bukan buatan repo ini). Isi dokumen ini berasal dari **analisis statis** APK versi terbaru (`Genieacs (2).apk`: manifest, string, kode smali, satu berkas HTML di dalamnya), pembacaan repo [alijayanet/genieacs-multitab-mod](https://github.com/alijayanet/genieacs-multitab-mod), dan **uji jalan di emulator Android** terhadap server tiruan (login, daftar ONT, detail ONT, Summon, Peta). Bagian server yang ditulis di sini (VP, deklarasi `default`, sinkron tag Peta) diuji di sisi Multitab.
 
 Aplikasi pihak ketiga ini hanya bisa dipakai di **jaringan lokal / VPN** (alasannya ada di "Cara menghubungkan"). Untuk akses dari internet dan fitur ZTE (bridge, port LAN), yang cocok adalah klien native buatan sendiri (SALFA ACS, folder `android/`) yang bicara ke proxy NBI berpassword.
 
@@ -14,7 +14,7 @@ Aplikasi pihak ketiga ini hanya bisa dipakai di **jaringan lokal / VPN** (alasan
 | Tambah/ubah WAN | `addObject` + `setParameterValues`, **hanya parameter vendor Huawei (`X_HW_*`), CT-COM, dan CMCC**. Tidak ada parameter ZTE (`X_ZTE-COM_*`, `X_ZTE-COM_PortBinding`). |
 | Ubah massal akun admin | Mengubah akun web ONT banyak modem sekaligus (ZTE `X_ZTE-COM_WebUserInfo.AdminName/AdminPassword`, Huawei `X_HW_WebUserInfo.2`, FiberHome `X_FH_WebUserInfo.WebSuper*`, CMCC/CT `TeleComAccount`). |
 | Peta jaringan | Halaman `assets/map/peta.html` (Leaflet, ubin OpenStreetMap dan satelit Google): pelanggan, ODP, kabel ke ODP, GPS ponsel, rute ke Google Maps, Summon dari peta. Lokasi disimpan sebagai **tag di device** (lihat "Peta: tag aplikasi"). |
-| Asisten | "GenieVoice": pengenalan suara dan suara balasan bawaan Android, dan tanya-jawab dengan Google Gemini memakai **kunci API yang Anda isi sendiri di aplikasi**. Tidak ditemukan kunci/rahasia tertanam di APK (898 berkas dipindai). |
+| Asisten | "GenieVoice": pengenalan suara dan suara balasan bawaan Android, dan tanya-jawab dengan Google Gemini memakai **kunci API yang Anda isi sendiri di aplikasi**. **Aplikasi membawa kunci Gemini bawaan milik pembuatnya** (`DEFAULT_GEMINI_API_KEY` di `AppPreferences`; kolom "Gemini AI Key" di layar login sudah terisi sejak instal pertama). Kunci itu bukan milik Anda dan dipakai bersama oleh semua pengguna aplikasi; ganti dengan kunci Anda sendiri atau kosongkan bila asisten suara tidak dipakai. Selain itu tidak ditemukan rahasia lain (898 berkas dipindai).
 
 Izin Android: `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_FINE/COARSE_LOCATION` (GPS peta), `RECORD_AUDIO` (suara). Lalu lintas **HTTP polos diizinkan**.
 
@@ -32,6 +32,14 @@ Yang dibaca aplikasi dari server: Virtual Parameter `pppoeUsername`, `pppoeIP`, 
 | NBI `/devices`, `/tasks` | ✅ | |
 | Tambah WAN pada **ZTE** | ❌ aplikasi tidak punya parameter ZTE | pakai halaman **Bridge** Multitab (atau klien SALFA ACS) |
 | Perangkat TR-181 (`Device.*`) | ❌ | aplikasi hanya memakai `InternetGatewayDevice.*` |
+
+## Hasil uji jalan di emulator
+
+Diuji di emulator Android (API 36) terhadap server tiruan yang meniru NBI 7557 dan login UI 3000 dengan data ONT ZTE nyata:
+- Login mengikuti persis alur di atas: `GET /devices?limit=1` (tanpa lalu dengan Basic), `GET /users` (server tiruan membalas daftar kosong; login tetap lolos), lalu `POST :3000/login` (form `username=…&password=…`).
+- Daftar ONT memakai satu `GET /devices?projection=…` yang meminta VP `pppoeUsername`, `RXPower`, `redaman`, `WlanSSID`; tag `ODP_*` tampil sebagai filter dan label.
+- Detail ONT menampilkan Rx dan **Tx** (VP `TXPower` "2.66 dBm" tampil "2.7 dBm"), IP PPPoE, MAC, tag, dan koordinat dari tag `LOC_`; **Summon** mengirim `refreshObject` dengan `objectName` kosong; **Peta** memuat "Terpetakan: 1" dari tag tersebut.
+- Belum diuji: ubah WiFi/WAN/akun admin terhadap ONT sungguhan, asisten suara, dan GPS.
 
 ## Cara menghubungkan
 
