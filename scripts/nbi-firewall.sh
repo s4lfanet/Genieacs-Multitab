@@ -6,7 +6,7 @@
 #
 # Yang dilakukan (HANYA port 7557, TIDAK menyentuh port lain, tidak mengaktifkan ufw, tidak mengubah kebijakan bawaan):
 #   - chain iptables GM_NBI_7557 yang menerima: localhost, subnet jaringan server sendiri, daftar --allow, dan sambungan
-#     yang SUDAH berjalan (ESTABLISHED/RELATED); selain itu dicatat (kernel log "gm-nbi-blok:") lalu ditolak (tcp-reset)
+#     yang SUDAH berjalan (ESTABLISHED/RELATED); selain itu dicatat (kernel log "gm-nbi-blok-<port>:") lalu ditolak (tcp-reset)
 #   - service systemd genieacs-nbi-firewall (oneshot) supaya aturan kembali setelah reboot
 #
 # Pemakaian:
@@ -47,16 +47,16 @@ build() {   # bangun ulang chain dari daftar di $@
   iptables -A "$CHAIN" -s 127.0.0.0/8 -j RETURN
   iptables -A "$CHAIN" -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
   for c in "$@"; do [[ "$c" == *:* ]] || iptables -A "$CHAIN" -s "$c" -j RETURN; done
-  iptables -A "$CHAIN" -m limit --limit 6/min --limit-burst 10 -j LOG --log-prefix "gm-nbi-blok: " --log-level 6 2>/dev/null || true
+  iptables -A "$CHAIN" -m limit --limit 6/min --limit-burst 10 -j LOG --log-prefix "gm-nbi-blok-$PORT: " --log-level 6 2>/dev/null || true
   iptables -A "$CHAIN" -p tcp -j REJECT --reject-with tcp-reset
-  iptables -C INPUT -p tcp --dport "$PORT" -j "$CHAIN" 2>/dev/null || iptables -I INPUT 1 -p tcp --dport "$PORT" -j "$CHAIN"
+  iptables -C INPUT -p tcp --dport "$PORT" -j "$CHAIN" >/dev/null 2>&1 || iptables -I INPUT 1 -p tcp --dport "$PORT" -j "$CHAIN"
   if [ $HAS6 = 1 ]; then
     ip6tables -N "$CHAIN" 2>/dev/null || ip6tables -F "$CHAIN"
     ip6tables -A "$CHAIN" -s ::1/128 -j RETURN
     ip6tables -A "$CHAIN" -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
     for c in "$@"; do [[ "$c" == *:* ]] && ip6tables -A "$CHAIN" -s "$c" -j RETURN; done
     ip6tables -A "$CHAIN" -p tcp -j REJECT --reject-with tcp-reset
-    ip6tables -C INPUT -p tcp --dport "$PORT" -j "$CHAIN" 2>/dev/null || ip6tables -I INPUT 1 -p tcp --dport "$PORT" -j "$CHAIN"
+    ip6tables -C INPUT -p tcp --dport "$PORT" -j "$CHAIN" >/dev/null 2>&1 || ip6tables -I INPUT 1 -p tcp --dport "$PORT" -j "$CHAIN"
   fi
 }
 
@@ -64,7 +64,7 @@ unbuild() {
   local t
   for t in iptables ip6tables; do
     command -v $t >/dev/null || continue
-    while $t -D INPUT -p tcp --dport "$PORT" -j "$CHAIN" 2>/dev/null; do :; done
+    while $t -D INPUT -p tcp --dport "$PORT" -j "$CHAIN" >/dev/null 2>&1; do :; done
     $t -F "$CHAIN" 2>/dev/null || true; $t -X "$CHAIN" 2>/dev/null || true
   done
 }
@@ -74,9 +74,9 @@ code() { curl -s -o /dev/null -m 6 -w '%{http_code}' "$1" 2>/dev/null || true; }
 status() {
   echo "== NBI port $PORT"
   ss -Htln "( sport = :$PORT )" | sed 's/^/   listen: /' || true
-  if iptables -C INPUT -p tcp --dport "$PORT" -j "$CHAIN" 2>/dev/null; then
+  if iptables -C INPUT -p tcp --dport "$PORT" -j "$CHAIN" >/dev/null 2>&1; then
     echo "   pembatasan: AKTIF (chain $CHAIN)"; iptables -S "$CHAIN" | sed 's/^/     /'
-    echo "   diblokir 24 jam terakhir: $(journalctl -k --since -24h --no-pager 2>/dev/null | grep -c 'gm-nbi-blok' || true) paket tercatat"
+    echo "   diblokir 24 jam terakhir: $(journalctl -k --since -24h --no-pager 2>/dev/null | grep -c "gm-nbi-blok-$PORT" || true) paket tercatat"
   else
     echo "   pembatasan: TIDAK AKTIF (port terbuka untuk semua yang bisa menjangkau server)"
   fi
@@ -92,8 +92,8 @@ case "$MODE" in
   bootstop) unbuild; exit 0 ;;
   remove)
     unbuild
-    systemctl disable --now "$UNIT" >/dev/null 2>&1 || true
-    if [ "$PORT" = 7557 ]; then rm -f "/etc/systemd/system/$UNIT" "$LIB/nbi-firewall.sh"; systemctl daemon-reload; fi
+    # service hanya milik port 7557; menghapus port uji tidak boleh menyentuhnya
+    if [ "$PORT" = 7557 ]; then systemctl disable --now "$UNIT" >/dev/null 2>&1 || true; rm -f "/etc/systemd/system/$UNIT" "$LIB/nbi-firewall.sh"; systemctl daemon-reload; fi
     rm -f "$ALLOW_FILE"
     echo "pembatasan port $PORT dicabut; aturan, service, dan daftar izin dihapus."; exit 0 ;;
 esac

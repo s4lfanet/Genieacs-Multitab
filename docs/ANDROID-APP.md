@@ -49,7 +49,7 @@ NBI GenieACS **tidak memeriksa username/password**. Diuji di server produksi:
 
 Karena itu: jangan membuka 7557 ke internet, batasi ke jaringan tepercaya, dan pakai sandi UI yang panjang dan unik.
 
-**A. Batasi lewat firewall** (paling sederhana), mis. `sudo ufw allow from 192.168.54.0/24 to any port 7557 proto tcp` lalu `sudo ufw deny 7557/tcp`. Bot Telegram/WhatsApp, installer, dan halaman Admin memakai `127.0.0.1:7557`, jadi tidak terpengaruh.
+**A. Batasi lewat firewall** dengan `bash scripts/nbi-firewall.sh --apply`. Skrip ini hanya menyentuh port 7557 (tidak mengaktifkan `ufw`, tidak mengubah kebijakan bawaan, tidak menyentuh 3000/7547/7567): mengizinkan localhost, subnet jaringan server sendiri, tambahan `--allow CIDR` (mis. VPN), dan sambungan yang sudah berjalan; selain itu dicatat (`journalctl -k | grep gm-nbi-blok`) lalu ditolak. Tanpa argumen skrip hanya menampilkan status; `--remove` mencabut semuanya. Dipasang sebagai service systemd supaya aturan kembali setelah reboot, dan dicabut otomatis bila uji sesudah pemasangan gagal. Bot Telegram/WhatsApp, installer, dan halaman Admin memakai `127.0.0.1:7557`, jadi tidak terpengaruh. **Perhatian:** perangkat di subnet lain yang selama ini memakai 7557 (mis. aplikasi Alijaya dari VLAN lain) akan ditolak sampai ditambahkan dengan `--allow`.
 
 **B. Akses dari internet** (untuk klien native buatan sendiri) lewat proxy berpassword ([CLOUDFLARE-TUNNEL.md](CLOUDFLARE-TUNNEL.md)). Proxy itu sengaja **memblokir `/users`** dan hanya meneruskan daftar putih; karena itu aplikasi Alijaya tidak bekerja lewat proxy (selain itu langkah login memaksa port 3000).
 
