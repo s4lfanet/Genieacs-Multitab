@@ -20,7 +20,7 @@ Semuanya dipasang lewat **data MongoDB** (Config, Virtual Parameters, Provisions
 | **WAN & WiFi umum + per merk** | Tabel WAN/WiFi standar TR-069 untuk semua merk, ditambah tampilan khusus per merk (VLAN, service list, LAN bind). |
 | **LAN Config** | IP LAN, DHCP server (start/end/DNS/gateway/lease), status port LAN. Semua bisa diedit. |
 | **Admin Web + ACS** | User/password web ONT (user & superadmin), URL ACS, user/pass ACS, connection request, interval inform, dengan tombol Summon. |
-| **31 Virtual Parameter** | RX power/redaman, suhu, mode PON, uptime, PPPoE (user/IP/password), SSID aktif + jumlah client, user/superadmin web ONT lintas merk (termasuk Nokia/ALCL). |
+| **32 Virtual Parameter** | RX power/redaman, suhu, mode PON, uptime, PPPoE (user/IP/password), SSID aktif + jumlah client, user/superadmin web ONT lintas merk (termasuk Nokia/ALCL). |
 | **Branding** | Ganti logo dari **Admin → Files**, judul/subtitle/warna header dari **Admin → Config** (`branding.*`). |
 | **Bot Telegram** (opsional) | Cek ONT, cari pelanggan, ONT offline, redaman buruk, fault, ganti SSID/password WiFi, refresh, reboot (dengan konfirmasi), alert fault, dan asisten AI yang hanya membaca. |
 | **Bot WhatsApp** (opsional) | Perintah sama persis dengan bot Telegram (lewat Baileys/scan QR — baca risikonya di [docs/WHATSAPP-BOT.md](docs/WHATSAPP-BOT.md) sebelum pasang). |
@@ -72,7 +72,7 @@ Panduan lengkap ada di **[docs/INSTALL.md](docs/INSTALL.md)**.
 ```
 config/ui-config.json            semua key Config ui.* + branding.* (tampilan)
 config/bot-config.example.json   contoh key Config bot.*
-virtual-parameters/*.js          31 Virtual Parameter
+virtual-parameters/*.js          32 Virtual Parameter
 provisions/*.js                  provision (default, bootstrap, inform2, useradmin2, remoteweb, nokia_pppoe)
 presets/presets.json             preset referensi (preset opsional dipasang lewat flag installer)
 scripts/install.sh               installer (backup -> import -> cek UI -> rollback bila gagal)

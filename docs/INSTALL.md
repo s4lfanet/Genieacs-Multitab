@@ -53,7 +53,7 @@ bash scripts/install.sh
 Urutan kerja installer:
 1. Memastikan UI menjawab HTTP 200 sebelum mulai.
 2. **Backup** koleksi `config`, `virtualParameters`, `provisions`, `presets` ke `backups/<waktu>/`.
-3. Memasang 31 Virtual Parameter, provision `bootstrap` dan `default`, serta preset `bootstrap`/`default`. **Yang sudah ada di server dan isinya berbeda tidak ditimpa** (dilaporkan sebagai "dilewati"); pakai `--overwrite` kalau memang mau menggantinya. Provision yang mengubah ONT (`inform2`, `useradmin2`, `remoteweb`, `nokia_pppoe`) **tidak ikut terpasang** kecuali diminta dengan flag `--preset-*` / `--provision=`.
+3. Memasang 32 Virtual Parameter, provision `bootstrap` dan `default`, serta preset `bootstrap`/`default`. **Yang sudah ada di server dan isinya berbeda tidak ditimpa** (dilaporkan sebagai "dilewati"); pakai `--overwrite` kalau memang mau menggantinya. Provision yang mengubah ONT (`inform2`, `useradmin2`, `remoteweb`, `nokia_pppoe`) **tidak ikut terpasang** kecuali diminta dengan flag `--preset-*` / `--provision=`.
 4. **Mengganti semua key `ui.*`** di Config dengan tampilan multi-tab. Key `branding.*` hanya ditambahkan kalau belum ada.
 5. Membersihkan cache GenieACS.
 6. Mengecek UI 6 kali. Kalau UI tidak menjawab 200, installer **rollback otomatis** dari backup tadi.
