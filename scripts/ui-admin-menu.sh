@@ -15,6 +15,7 @@
 #   bash scripts/ui-admin-menu.sh --bridge   # hanya halaman Bridge ONT ZTE (buat WAN bridge + LAN-bind lewat TR-069)
 #   bash scripts/ui-admin-menu.sh --voice    # hanya halaman Voice AI (tanya asisten AI dengan suara/ketikan; jawaban lewat layanan bot WA)
 #   bash scripts/ui-admin-menu.sh --portal   # hanya halaman Portal WiFi (pengaturan portal mandiri pelanggan; butuh scripts/setup-portal.sh)
+#   bash scripts/ui-admin-menu.sh --nbi      # hanya halaman Akses NBI (atur IP yang boleh menjangkau NBI; butuh scripts/setup-nbi-guard.sh)
 #   bash scripts/ui-admin-menu.sh --status   # hanya halaman Status layanan (UI/CWMP/NBI/FS; datanya dari layanan updater)
 #   (opsi bisa digabung; --bot / --bot=PORT = menu Bot lama berupa iframe ke port QR WA, perlu port itu terjangkau)
 #   bash scripts/ui-admin-menu.sh --remove   # kembalikan file asli (menghapus semua menu)
@@ -44,12 +45,12 @@ ui_ok() { local bad=0; sleep 3; for i in 1 2 3; do c="$(curl -s -o /dev/null -m 
 
 if [ "${1:-}" = "--remove" ]; then
   sudo install -m 644 "$BK" "$JS"
-  sudo rm -f "$PUB/peta.html" "$PUB/bot.html" "$PUB/wa.html" "$PUB/update.html" "$PUB/status.html" "$PUB/bridge.html" "$PUB/voice.html" "$PUB/portal.html" "$PUB/tunnel.html"
+  sudo rm -f "$PUB/peta.html" "$PUB/bot.html" "$PUB/wa.html" "$PUB/update.html" "$PUB/status.html" "$PUB/bridge.html" "$PUB/voice.html" "$PUB/portal.html" "$PUB/nbi.html" "$PUB/tunnel.html"
   echo "menu dihapus (file asli dikembalikan; data peta di Config 'peta.data' tidak dihapus)"; ui_ok || true
   exit 0
 fi
 
-BOT=0; MAP=0; BOTPAGE=0; THEME=0; WAPAGE=0; UPDPAGE=0; STATPAGE=0; BRIDGEPAGE=0; VOICEPAGE=0; PORTALPAGE=0
+BOT=0; MAP=0; BOTPAGE=0; THEME=0; WAPAGE=0; UPDPAGE=0; STATPAGE=0; BRIDGEPAGE=0; VOICEPAGE=0; PORTALPAGE=0; NBIPAGE=0
 if [ $# -eq 0 ]; then BOT=3010; fi
 for a in "$@"; do
   case "$a" in
@@ -62,6 +63,7 @@ for a in "$@"; do
     --status) STATPAGE=1 ;;
     --bridge) BRIDGEPAGE=1 ;;
     --voice) VOICEPAGE=1 ;;
+    --nbi) NBIPAGE=1 ;;   # seperti --portal: tidak ikut --all; dipasang bila penjaga NBI terpasang (updater) atau diminta eksplisit
     --portal) PORTALPAGE=1 ;;   # TIDAK ikut --all: hanya bila portal terpasang (updater) atau diminta eksplisit
     --tunnel) ;;   # halaman Tunnel sudah dihapus; opsi diterima (diabaikan) supaya updater lama yang masih mengirimnya tidak gagal
     --all) MAP=1; BOTPAGE=1; THEME=1; WAPAGE=1; UPDPAGE=1; STATPAGE=1; BRIDGEPAGE=1; VOICEPAGE=1 ;;
@@ -70,7 +72,7 @@ for a in "$@"; do
   esac
 done
 TMP="$(mktemp --suffix=.mjs)"; trap 'rm -f "$TMP"' EXIT
-node "$ROOT/scripts/lib/ui-admin-menu.js" "$BK" "$TMP" "$BOT" "$MAP" "$BOTPAGE" "$THEME" "$WAPAGE" "$UPDPAGE" "$STATPAGE" "$BRIDGEPAGE" "$VOICEPAGE" "$PORTALPAGE"
+node "$ROOT/scripts/lib/ui-admin-menu.js" "$BK" "$TMP" "$BOT" "$MAP" "$BOTPAGE" "$THEME" "$WAPAGE" "$UPDPAGE" "$STATPAGE" "$BRIDGEPAGE" "$VOICEPAGE" "$PORTALPAGE" "$NBIPAGE"
 # pastikan JS hasil patch tetap valid (.mjs: bundle GenieACS adalah modul ES).
 # Node < 14 tidak bisa memeriksa sintaks bundle (optional chaining dst). Di situ pengecekan dilewati HANYA bila
 # bundle sumbernya persis bundle GenieACS 1.2.13 (md5 di bawah) yang hasil patch-nya sudah divalidasi di Node baru.
@@ -89,7 +91,8 @@ if [ "$STATPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/status.html" "$PUB/
 if [ "$BRIDGEPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/bridge.html" "$PUB/bridge.html"; fi
 if [ "$VOICEPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/voice.html" "$PUB/voice.html"; fi
 if [ "$PORTALPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/portal.html" "$PUB/portal.html"; fi
+if [ "$NBIPAGE" != 0 ]; then sudo install -m 644 "$ROOT/map/nbi.html" "$PUB/nbi.html"; fi
 sudo rm -f "$PUB/tunnel.html"   # sisa halaman Tunnel versi lama
 sudo install -m 644 "$TMP" "$JS"
-if ! ui_ok; then echo "!! UI tidak sehat -> kembalikan file asli"; sudo install -m 644 "$BK" "$JS"; sudo rm -f "$PUB/peta.html" "$PUB/bot.html" "$PUB/wa.html" "$PUB/update.html" "$PUB/status.html" "$PUB/bridge.html" "$PUB/voice.html" "$PUB/portal.html" "$PUB/tunnel.html"; exit 1; fi
+if ! ui_ok; then echo "!! UI tidak sehat -> kembalikan file asli"; sudo install -m 644 "$BK" "$JS"; sudo rm -f "$PUB/peta.html" "$PUB/bot.html" "$PUB/wa.html" "$PUB/update.html" "$PUB/status.html" "$PUB/bridge.html" "$PUB/voice.html" "$PUB/portal.html" "$PUB/nbi.html" "$PUB/tunnel.html"; exit 1; fi
 echo "Selesai. Buka GenieACS, tekan Ctrl+F5, lalu Admin -> menu baru di sidebar (Voice AI, Bot WA, Pengaturan Bot, Peta, ODP, Bridge, Update) dan tombol tema di pojok kanan bawah."

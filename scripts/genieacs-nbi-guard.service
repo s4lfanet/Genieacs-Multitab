@@ -1,0 +1,17 @@
+[Unit]
+Description=GenieACS penjaga akses NBI (menerapkan pengaturan halaman Admin ke firewall)
+After=network-online.target mongod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env node /usr/local/lib/genieacs-multitab/nbi-guard.js
+Restart=on-failure
+RestartSec=10
+# Butuh root untuk iptables dan journalctl -k; dibatasi semampunya
+NoNewPrivileges=false
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
