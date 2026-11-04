@@ -351,6 +351,7 @@ function publishState() {
 }
 
 function startTimers() {
+  core.voiceStart(loadConfig);   // halaman Admin -> Voice AI (lewat Config voice.q / voice.a)
   let lastReq = String(readGenieConfig()["wabot.requestQr"] || "");
   setInterval(() => {
     try { publishState(); } catch (e) { log("WA publish", e.message); }

@@ -721,6 +721,42 @@ async function checkAlerts(cfg, sendFn) {
   for (const id of cfg.alertChatIds) await sendFn(id, text).catch((e) => log("alert gagal", e.message));
 }
 
+// ---------- Asisten suara web (Admin -> Voice AI, map/voice.html) ----------
+// Halaman menulis pertanyaan ke Config "voice.q" ('base64 JSON {id,text}'); di sini dijawab pakai AI yang sama dengan /tanya
+// (hanya membaca data) dan jawabannya ditulis ke "voice.a". Tanpa port tambahan. Dipanggil dari wa.js (layanan genieacs-wa-bot).
+const { execFile } = require("child_process");
+function mongoEval(js) {
+  return new Promise((resolve, reject) => {
+    let bin; try { bin = mongoBin(); } catch (e) { return reject(e); }
+    execFile(bin, [process.env.GENIEACS_DB || "genieacs", "--quiet", "--eval", js], { encoding: "utf8", timeout: 15000 }, (err, out) => err ? reject(err) : resolve(String(out).trim().split("\n").pop()));
+  });
+}
+const unq = (v) => { v = String(v || "").trim(); return v.length >= 2 && v[0] === "'" && v[v.length - 1] === "'" ? v.slice(1, -1) : v; };
+function voiceStart(loadCfg) {
+  let last = null, busy = false;
+  const tick = async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      const raw = unq(await mongoEval('var c=db.config.findOne({_id:"voice.q"});print(c?String(c.value):"")'));
+      if (last === null) { last = raw; return; }   // permintaan lama sebelum layanan hidup tidak dijawab ulang
+      if (!raw || raw === last) return;
+      last = raw;
+      let q = null;
+      try { q = JSON.parse(Buffer.from(raw, "base64").toString("utf8")); } catch (e) { return; }
+      if (!q || typeof q.id !== "string" || typeof q.text !== "string") return;
+      const text = q.text.trim().slice(0, 500);
+      let ans;
+      if (text.length < 5) ans = "Pertanyaannya terlalu singkat. Coba tanyakan lebih lengkap.";
+      else { try { ans = await cmdTanya(loadCfg(), "voice", text); } catch (e) { ans = "Gagal menjawab: " + e.message; } }
+      const val = "'" + Buffer.from(JSON.stringify({ id: q.id.slice(0, 40), text: String(ans).slice(0, 4000), ts: Date.now() })).toString("base64") + "'";
+      await mongoEval('db.config.updateOne({_id:"voice.a"},{$set:{value:' + JSON.stringify(val) + '}},{upsert:true});print("ok")');
+    } catch (e) { log("voice:", e.message); }
+    finally { busy = false; }
+  };
+  setInterval(tick, 2000);
+}
+
 module.exports = {
   // util
   log, sleep, audit, loadState, saveState, request, nbiGet, readGenieConfig, list, mongoBin,
@@ -735,5 +771,7 @@ module.exports = {
   // teks
   HELP, makeHelp,
   // alert
-  checkAlerts
+  checkAlerts,
+  // asisten suara web
+  voiceStart
 };

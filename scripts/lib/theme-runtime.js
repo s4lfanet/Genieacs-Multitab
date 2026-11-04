@@ -51,6 +51,7 @@
     bot: ico("<rect x='4' y='8' width='16' height='11' rx='3'/><path d='M12 8V5M9 13h.01M15 13h.01M9.5 16.5h5'/><circle cx='12' cy='4' r='1'/>"),
     peta: ico("<path d='M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z'/><circle cx='12' cy='9.5' r='2.5'/>"),
     odp: ico("<circle cx='12' cy='5' r='2'/><circle cx='5' cy='19' r='2'/><circle cx='12' cy='19' r='2'/><circle cx='19' cy='19' r='2'/><path d='M12 7v5M12 12l-6 5M12 12v5M12 12l6 5'/>"),
+    voice: ico("<rect x='9' y='3' width='6' height='12' rx='3'/><path d='M5 11a7 7 0 0 0 14 0M12 18v3'/>"),
     bridge: ico("<rect x='3' y='14' width='18' height='6' rx='2'/><path d='M7 14V8a5 5 0 0 1 10 0v6M7 17h.01M11 17h.01'/>"),
     status: ico("<path d='M3 12h4l3-8 4 16 3-8h4'/>"),
     update: ico("<path d='M12 3v12M7 10l5 5 5-5'/><path d='M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2'/>"),

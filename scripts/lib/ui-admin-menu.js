@@ -1,4 +1,5 @@
 // Tambah menu di sidebar Admin GenieACS, dikelompokkan dengan ikon:
+//   BOT       "Voice AI"     -> /voice.html  tanya asisten AI dengan suara/ketikan (jawaban oleh layanan bot WA lewat Config voice.q/voice.a)
 //   BOT       "Bot WA"        -> /wa.html   status & QR bot WhatsApp lewat Config (port GenieACS, tanpa port 3010)
 //             "Bot"           -> /bot.html  pengaturan bot Telegram/AI/WA di Admin -> Config (tanpa port lain)
 //             "Bot" (iframe)  -> halaman bot WA di port lain (opsi lama, default port 3010)
@@ -7,7 +8,7 @@
 //   JARINGAN  "Bridge"        -> /bridge.html: buat WAN bridge + LAN-bind pada ZTE F679D/F670L lewat TR-069 (docs/BRIDGE-ZTE.md)
 //   SISTEM    "Status"        -> /status.html: status layanan UI/CWMP/NBI/FS + pendukung (data dari layanan updater)
 //   SISTEM    "Update"        -> /update.html: periksa & pasang pembaruan dari GitHub lewat layanan updater (docs/UPDATE.md)
-// Pakai: node ui-admin-menu.js <file app-*.js asli> <file keluaran> <portBot|0> [peta|0] [botpage|0] [tema|0] [wapage|0] [update|0] [status|0] [bridge|0]
+// Pakai: node ui-admin-menu.js <file app-*.js asli> <file keluaran> <portBot|0> [peta|0] [botpage|0] [tema|0] [wapage|0] [update|0] [status|0] [bridge|0] [voice|0]
 // portBot 0 = tanpa menu Bot (iframe port); argumen ke-4..8 selain 0/kosong = pasang Peta&ODP / halaman Bot / tema / Bot WA / Update.
 // Kode tema ada di theme-runtime.js (dijalankan di browser, disisipkan apa adanya ke bundle).
 // Diuji pada GenieACS 1.2.13 (app-FOJWPRV7.js). Setiap titik sisip harus ditemukan TEPAT SEKALI,
@@ -15,7 +16,8 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
-const [src, out, portArg, mapArg, botPageArg, themeArg, waPageArg, updArg, statArg, bridgeArg] = process.argv.slice(2);
+const [src, out, portArg, mapArg, botPageArg, themeArg, waPageArg, updArg, statArg, bridgeArg, voiceArg] = process.argv.slice(2);
+const withVoice = !!(parseInt(voiceArg, 10) || 0);
 const withBridge = !!(parseInt(bridgeArg, 10) || 0);
 const withStatus = !!(parseInt(statArg, 10) || 0);
 const withUpdate = !!(parseInt(updArg, 10) || 0);
@@ -24,12 +26,12 @@ const withBotPage = !!(parseInt(botPageArg, 10) || 0);
 const withTheme = !!(parseInt(themeArg, 10) || 0);
 const port = portArg === undefined ? 3010 : parseInt(portArg, 10) || 0;
 const withMap = !!(parseInt(mapArg, 10) || 0);
-if (!port && !withMap && !withBotPage && !withTheme && !withWaPage && !withUpdate && !withStatus) { console.error("tidak ada menu yang diminta"); process.exit(1); }
+if (!port && !withMap && !withBotPage && !withTheme && !withWaPage && !withUpdate && !withStatus && !withVoice) { console.error("tidak ada menu yang diminta"); process.exit(1); }
 
 const pages = [];     // key halaman (dianggap bagian Admin)
 const items = [];     // potongan JS yang mendorong <li> ke sidebar
 const routes = [];    // rute #!/admin/<key>
-const frame = (src) => '(0,jt.default)("iframe",{src:' + src + ',allow:"geolocation",' +
+const frame = (src) => '(0,jt.default)("iframe",{src:' + src + ',allow:"geolocation; microphone",' +
   'style:"width:100%;height:calc(100vh - 170px);min-height:480px;border:0;background:transparent",' +
   // halaman kita memuat <meta name=acs-page>; kalau tidak ada (file belum disalin ke public/ -> 404, atau versi lama) tampilkan pesan, bukan layar kosong
   'onload:function(e){try{var d=e.target.contentDocument;if(d&&d.body&&!d.querySelector("meta[name=acs-page]")){' +
@@ -45,7 +47,8 @@ function menu(key, label, title, srcExpr) {
   items.push(guard + '(0,je.default)("li",{class:t.' + key + '},(0,je.default)("a",{class:"acs-x acs-x-' + key + '",href:"#!/admin/' + key + '"},"' + label + '"))),');
   routes.push('"/admin/' + key + '":nt("' + key + '",{component:()=>({view:()=>(document.title="' + title + ' - GenieACS",' + frame(srcExpr) + ')})}),');
 }
-if (port || withWaPage || withBotPage) sep("Bot");
+if (port || withWaPage || withBotPage || withVoice) sep("Bot");
+if (withVoice) menu("voice", "Voice AI", "Voice AI", '"/voice.html"');
 if (port) menu("bot", "Bot (port " + port + ")", "Bot", hostPort(port));
 if (withWaPage) menu("wa", "Bot WA", "Bot WA", '"/wa.html"');
 if (withBotPage) menu("botcfg", "Pengaturan Bot", "Pengaturan Bot", '"/bot.html"');
@@ -98,4 +101,4 @@ for (const [a, b] of patches) {
 }
 const THEME = withTheme ? fs.readFileSync(path.join(__dirname, "theme-runtime.js"), "utf8").replace(/\r/g, "") + "\n" : "";
 fs.writeFileSync(out, MARK + "\n" + THEME + s);
-console.log("patch OK (bot:" + (port || "-") + " peta:" + (withMap ? "ya" : "-") + " botpage:" + (withBotPage ? "ya" : "-") + " tema:" + (withTheme ? "ya" : "-") + " wa:" + (withWaPage ? "ya" : "-") + " bridge:" + (withBridge ? "ya" : "-") + " update:" + (withUpdate ? "ya" : "-") + " status:" + (withStatus ? "ya" : "-") + ")");
+console.log("patch OK (bot:" + (port || "-") + " peta:" + (withMap ? "ya" : "-") + " botpage:" + (withBotPage ? "ya" : "-") + " tema:" + (withTheme ? "ya" : "-") + " wa:" + (withWaPage ? "ya" : "-") + " bridge:" + (withBridge ? "ya" : "-") + " update:" + (withUpdate ? "ya" : "-") + " status:" + (withStatus ? "ya" : "-") + " voice:" + (withVoice ? "ya" : "-") + ")");
