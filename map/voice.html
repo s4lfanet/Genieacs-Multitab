@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="acs-page" content="voice">
+<title>Voice AI</title>
+<style>
+:root{--bg:#fff;--surface:#fff;--fg:#002f2f;--mut:#667078;--bd:#ebe0bf;--pri:#046380;--soft:#f2ebd5;--on:#fff;--ok:#16803c;--bad:#c62828;--warn:#b45309}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);padding:18px 22px 22px;display:flex;flex-direction:column}
+h1{font-size:20px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 14px}
+.card{background:var(--surface);border:1px solid var(--bd);border-radius:14px;flex:1;min-height:0;display:flex;flex-direction:column;max-width:860px;width:100%}
+#log{flex:1;min-height:120px;overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.b{max-width:82%;padding:9px 13px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word}
+.b.u{align-self:flex-end;background:var(--pri);color:var(--on);border-bottom-right-radius:4px}
+.b.a{align-self:flex-start;background:var(--soft);color:var(--fg);border-bottom-left-radius:4px}
+.b.e{align-self:flex-start;background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--fg)}
+.hint{color:var(--mut);text-align:center;margin:auto;max-width:440px}
+.bar{display:flex;gap:8px;align-items:center;padding:12px 14px;border-top:1px solid var(--bd)}
+#q{flex:1;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;min-width:0}
+#q:focus{outline:2px solid color-mix(in srgb,var(--pri) 45%,transparent);border-color:var(--pri)}
+.ib{flex:none;width:42px;height:42px;border-radius:50%;border:1px solid var(--bd);background:var(--soft);color:var(--pri);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ib svg{width:20px;height:20px}
+.ib:hover{filter:brightness(.97)}
+.ib.on{background:var(--bad);border-color:var(--bad);color:#fff;animation:p 1.2s infinite}
+.ib.sp{background:var(--pri);border-color:var(--pri);color:var(--on)}
+.ib[disabled]{opacity:.45;cursor:not-allowed}
+.send{font:inherit;font-weight:600;border:1px solid var(--pri);background:var(--pri);color:var(--on);border-radius:10px;padding:10px 18px;cursor:pointer}
+.send[disabled]{opacity:.5;cursor:wait}
+.st{padding:0 18px 8px;color:var(--mut);font-size:12px;min-height:20px}
+@keyframes p{50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--bad) 22%,transparent)}}
+</style>
+</head>
+<body>
+<h1>Voice AI</h1>
+<p class="sub">Tanya asisten tentang jaringan Anda dengan suara atau ketikan. Hanya membaca data, tidak mengubah apa pun di ONT.</p>
+<div class="card">
+  <div id="log"><div class="hint" id="hint">Contoh: “berapa ONT yang offline sekarang?”, “cek redaman ONT budi@rw02”, “ONT mana yang fault terbanyak?”</div></div>
+  <div class="st" id="st"></div>
+  <div class="bar">
+    <button class="ib" id="mic" title="Bicara" aria-label="Bicara"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+    <input id="q" type="text" maxlength="500" placeholder="Ketik pertanyaan…" autocomplete="off">
+    <button class="ib sp" id="spk" title="Suara jawaban: hidup" aria-label="Suara jawaban"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></button>
+    <button class="send" id="go">Kirim</button>
+  </div>
+</div>
+<script>
+"use strict";
+(function(){
+  var M={"--bg":"--acs-bg","--surface":"--acs-surface","--fg":"--acs-text","--mut":"--acs-muted","--bd":"--acs-border","--pri":"--acs-accent","--soft":"--acs-soft","--on":"--acs-on-accent","--ok":"--acs-ok","--bad":"--acs-bad","--warn":"--acs-warn"};
+  function ap(){var r=document.documentElement;try{var p=parent.document.documentElement,cs=parent.getComputedStyle(p);
+    Object.keys(M).forEach(function(k){var v=cs.getPropertyValue(M[k]).trim();if(v)r.style.setProperty(k,v)});
+    r.classList.toggle("dark",p.classList.contains("acs-dark"))}catch(e){}}
+  ap();try{new MutationObserver(ap).observe(parent.document.documentElement,{attributes:true})}catch(e){}
+})();
+function $(i){return document.getElementById(i)}
+function api(method,path,body){
+  return fetch(path,{method:method,credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.text().then(function(t){
+      if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
+      if(!r.ok)throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+      return t?JSON.parse(t):null})});
+}
+function plain(v){v=String(v==null?"":v).trim();return v.length>=2&&v[0]==="'"&&v[v.length-1]==="'"?v.slice(1,-1):v}
+function b64e(o){var u=unescape(encodeURIComponent(JSON.stringify(o)));return btoa(u)}
+function b64d(s){return JSON.parse(decodeURIComponent(escape(atob(s))))}
+function getCfg(key){return api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "'+key+'"')).then(function(r){return r&&r[0]?plain(r[0].value):""})}
+
+var log=$("log"),busy=false,speakOn=true;
+try{speakOn=localStorage.getItem("voice.speak")!=="0"}catch(e){}
+function bubble(cls,text){var h=$("hint");if(h)h.remove();var d=document.createElement("div");d.className="b "+cls;d.textContent=text;log.appendChild(d);log.scrollTop=log.scrollHeight}
+function status(t){$("st").textContent=t||""}
+function setBusy(v){busy=v;$("go").disabled=v;$("q").disabled=v;if(!v)$("q").focus()}
+
+// ----- suara keluar (bawaan browser) -----
+var synth=window.speechSynthesis;
+function clean(t){return String(t).replace(/[*_`#>|]/g,"").replace(/https?:\/\/\S+/g,"").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu,"").replace(/\s+/g," ").trim()}
+function say(t){
+  if(!synth||!speakOn)return;
+  try{synth.cancel();var u=new SpeechSynthesisUtterance(clean(t).slice(0,600));u.lang="id-ID";
+    var v=(synth.getVoices()||[]).filter(function(x){return /^id/i.test(x.lang)})[0];if(v)u.voice=v;synth.speak(u)}catch(e){}
+}
+function paintSpk(){var b=$("spk");b.classList.toggle("sp",speakOn);b.title="Suara jawaban: "+(speakOn?"hidup":"mati");b.style.opacity=speakOn?"1":".6"}
+$("spk").onclick=function(){speakOn=!speakOn;try{localStorage.setItem("voice.speak",speakOn?"1":"0")}catch(e){}if(!speakOn&&synth)synth.cancel();paintSpk()};
+paintSpk();
+
+// ----- suara masuk (bawaan browser; perlu HTTPS atau localhost, dan Chrome/Edge/Safari) -----
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition,rec=null;
+if(!SR){$("mic").disabled=true;$("mic").title="Browser ini tidak mendukung pengenalan suara; ketik saja"}
+$("mic").onclick=function(){
+  if(!SR||busy)return;
+  if(synth)synth.cancel();
+  if(rec){try{rec.stop()}catch(e){}return}
+  rec=new SR();rec.lang="id-ID";rec.interimResults=true;rec.maxAlternatives=1;
+  var finalText="";
+  rec.onstart=function(){$("mic").classList.add("on");status("Mendengarkan…")};
+  rec.onresult=function(e){var t="";for(var i=0;i<e.results.length;i++){t+=e.results[i][0].transcript;if(e.results[i].isFinal)finalText=t}$("q").value=t};
+  rec.onerror=function(e){var m={"not-allowed":"Izin mikrofon ditolak, atau halaman bukan HTTPS/localhost. Ketik saja pertanyaannya.","service-not-allowed":"Izin mikrofon ditolak. Ketik saja pertanyaannya.","no-speech":"Tidak ada suara terdengar.","audio-capture":"Mikrofon tidak ditemukan.","network":"Pengenalan suara butuh internet."};status(m[e.error]||("Mikrofon: "+e.error))};
+  rec.onend=function(){$("mic").classList.remove("on");rec=null;if(finalText){status("");ask(finalText)}else if($("st").textContent==="Mendengarkan…")status("")};
+  try{rec.start()}catch(e){rec=null;status("Mikrofon tidak bisa dimulai: "+e.message)}
+};
+
+// ----- tanya: tulis ke Config voice.q, tunggu voice.a dari layanan bot -----
+function ask(text){
+  text=String(text||"").trim();if(!text||busy)return;
+  $("q").value="";bubble("u",text);setBusy(true);status("Menunggu jawaban asisten…");
+  var id=Date.now().toString(36)+Math.random().toString(36).slice(2,6),t0=Date.now();
+  api("PUT","/api/config/voice.q",{_id:"voice.q",value:"'"+b64e({id:id,text:text})+"'"}).then(function(){
+    (function poll(){
+      if(Date.now()-t0>120000){bubble("e","Tidak ada jawaban. Pastikan layanan genieacs-wa-bot berjalan dan asisten AI aktif (Pengaturan Bot).");status("");setBusy(false);return}
+      getCfg("voice.a").then(function(v){
+        var a=null;try{a=v?b64d(v):null}catch(e){}
+        if(a&&a.id===id){bubble("a",a.text);status("");setBusy(false);say(a.text);return}
+        setTimeout(poll,1000);
+      }).catch(function(e){bubble("e",e.message);status("");setBusy(false)});
+    })();
+  }).catch(function(e){bubble("e",e.message);status("");setBusy(false)});
+}
+$("go").onclick=function(){ask($("q").value)};
+$("q").addEventListener("keydown",function(e){if(e.key==="Enter")ask($("q").value)});
+if(synth&&synth.getVoices)synth.getVoices();
+$("q").focus();
+</script>
+</body>
+</html>
