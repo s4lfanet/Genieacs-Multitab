@@ -16,7 +16,7 @@ fi
 command -v node >/dev/null || { echo "ERROR: node tidak ditemukan"; exit 1; }
 [ "$(node -p 'parseInt(process.versions.node,10)')" -ge 12 ] || { echo "ERROR: butuh Node 12+"; exit 1; }
 [ -f "$DEST/wa.js" ] || { echo "ERROR: bot WA belum terpasang di $DEST (jalankan scripts/setup-wa-bot.sh dulu). Portal memakai bot WA untuk mengirim OTP."; exit 1; }
-cp "$ROOT/bot/portal.js" "$ROOT/bot/portal-page.html" "$ROOT/bot/core.js" "$DEST/"
+cp "$ROOT/bot/portal.js" "$ROOT/bot/portal-page.html" "$ROOT/bot/core.js" "$ROOT/bot/wa.js" "$DEST/"   # wa.js baru memuat pengirim OTP (outbox) dan penjawab Voice AI
 node --check "$DEST/portal.js"
 
 MONGO="$(command -v mongosh || command -v mongo || true)"
