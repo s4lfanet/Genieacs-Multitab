@@ -197,6 +197,32 @@ function restartWa() {
   // portal pelanggan (bila terpasang) memakai core.js yang sama
   if (C.botdir && fs.existsSync(path.join(C.botdir, "portal.js"))) { try { cp.execFileSync("systemctl", ["restart", "genieacs-portal"], { timeout: 60000 }); } catch (e) { log("restart genieacs-portal gagal: " + e.message); } }
 }
+// Penjaga akses NBI (menu Admin -> Akses NBI): dipasang/diperbarui otomatis agar satu klik Update memasang semuanya.
+// Tidak fatal: kegagalan hanya dicatat; menu Akses NBI baru dipasang bila penjaga ada (lihat installedFlags).
+// Penjaga HANYA membaca firewall yang sudah ada saat pertama jalan (tidak mengubah aturan); lihat scripts/nbi-guard.js.
+const GUARD_LIB = process.env.GM_GUARD_LIB || "/usr/local/lib/genieacs-multitab";
+function updateNbiGuard() {
+  try {
+    const src = path.join(C.dir, "scripts"), have = fs.existsSync(path.join(GUARD_LIB, "nbi-guard.js"));
+    if (!fs.existsSync(path.join(src, "nbi-guard.js"))) return;   // versi repo lama: tidak ada penjaga
+    if (!have) {
+      log("penjaga NBI belum terpasang -> scripts/setup-nbi-guard.sh");
+      const r = cp.spawnSync("bash", [path.join(src, "setup-nbi-guard.sh")], { cwd: C.dir, encoding: "utf8", timeout: 120000 });
+      log((r.stdout || "").split("\n").slice(-4).join("\n"));
+      if (r.status !== 0) log("setup penjaga NBI gagal (kode " + r.status + "): " + String(r.stderr || "").split("\n").slice(-3).join(" | "));
+      return;
+    }
+    let changed = 0;
+    ["nbi-guard.js", "nbi-firewall.sh"].forEach((n) => {
+      if (sha256(path.join(src, n)) === sha256(path.join(GUARD_LIB, n))) return;
+      fs.copyFileSync(path.join(src, n), path.join(GUARD_LIB, n)); fs.chmodSync(path.join(GUARD_LIB, n), 0o755); changed++;
+    });
+    if (changed) {
+      log("penjaga NBI diperbarui (" + changed + " file), restart genieacs-nbi-guard");
+      cp.execFileSync("systemctl", ["restart", "genieacs-nbi-guard"], { timeout: 60000 });
+    }
+  } catch (e) { log("penjaga NBI dilewati: " + e.message); }
+}
 async function updateWa() {
   if (!waFiles()) { log("bot WA tidak terpasang di " + (C.botdir || "-") + ", dilewati"); return; }
   const src = path.join(C.dir, "bot");
@@ -230,6 +256,7 @@ async function apply(comps) {
       try { git(["merge", "--ff-only", "origin/" + C.branch]); }
       catch (e) { log("riwayat remote berubah (bukan fast-forward); mengikuti origin/" + C.branch); git(["reset", "--hard", "origin/" + C.branch]); }
     }
+    updateNbiGuard();
     runUi();
     if (comps.indexOf("wa") >= 0) await updateWa();
     if (!health()) throw new Error("UI GenieACS tidak sehat sesudah update");
