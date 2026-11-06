@@ -115,7 +115,7 @@ function pubDir() {
 function appJs(pub) {
   try { const f = fs.readdirSync(pub).filter((x) => /^app-[A-Za-z0-9]+\.js$/.test(x)); return f.length ? path.join(pub, f[0]) : ""; } catch (e) { return ""; }
 }
-const PAGES = [["peta.html", "--map"], ["bot.html", "--botpage"], ["wa.html", "--wapage"], ["status.html", "--status"], ["bridge.html", "--bridge"], ["voice.html", "--voice"], ["portal.html", "--portal"]];
+const PAGES = [["peta.html", "--map"], ["bot.html", "--botpage"], ["wa.html", "--wapage"], ["status.html", "--status"], ["bridge.html", "--bridge"], ["voice.html", "--voice"], ["portal.html", "--portal"], ["nbi.html", "--nbi"]];
 function installedFlags() {
   const pub = pubDir(), js = appJs(pub), f = [];
   if (!pub || !js) return f;
@@ -125,6 +125,7 @@ function installedFlags() {
   if (f.indexOf("--status") < 0) f.push("--status"); // dan halaman Status (datanya dari layanan ini)
   if (f.indexOf("--bridge") < 0) f.push("--bridge"); // dan halaman Bridge (hanya bekerja bila ada ONT ZTE; tidak mengubah apa pun sendiri)
   if (C.botdir && fs.existsSync(path.join(C.botdir, "portal.js")) && f.indexOf("--portal") < 0) f.push("--portal"); // portal pelanggan terpasang -> halaman pengaturannya ikut
+  if (fs.existsSync("/usr/local/lib/genieacs-multitab/nbi-guard.js") && f.indexOf("--nbi") < 0) f.push("--nbi"); // penjaga NBI terpasang -> halaman Akses NBI ikut
   if (waFiles() && f.indexOf("--voice") < 0) f.push("--voice"); // dan halaman Voice AI bila layanan bot WA terpasang (yang menjawabnya)
   return f;
 }

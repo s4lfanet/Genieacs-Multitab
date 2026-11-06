@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="acs-page" content="nbi">
+<title>Akses NBI</title>
+<style>
+:root{--bg:#fff;--surface:#fff;--fg:#002f2f;--mut:#667078;--bd:#ebe0bf;--pri:#046380;--soft:#f2ebd5;--on:#fff;--ok:#16803c;--bad:#c62828;--warn:#b45309}
+*{box-sizing:border-box}html,body{margin:0}
+body{font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);padding:18px 22px 32px}
+.wrap{max-width:860px}h1{font-size:20px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 16px}
+.card{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:16px}
+.card h2{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut);margin:0 0 12px}
+.hero{display:flex;gap:14px;align-items:center}
+.orb{flex:none;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--soft);color:var(--mut)}
+.orb svg{width:24px;height:24px}
+.orb.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.orb.wr{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.orb.er{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.st{font-size:17px;font-weight:700}.m{color:var(--mut);font-size:12px;margin-top:2px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+.kv div{background:var(--soft);border-radius:10px;padding:8px 12px}.kv b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.f{display:grid;grid-template-columns:230px minmax(0,1fr);gap:8px 14px;align-items:center;margin-bottom:12px}
+.f small{grid-column:2;color:var(--mut);margin-top:-6px}
+input[type=text],input[type=number]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;width:100%}
+input.bad{border-color:var(--bad)}
+table{width:100%;border-collapse:collapse}th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);text-align:left;padding:4px 6px;font-weight:600}
+td{padding:4px 6px;vertical-align:middle}td.n{white-space:nowrap}
+.btn{font:inherit;font-weight:600;border:1px solid var(--pri);background:var(--pri);color:var(--on);border-radius:10px;padding:9px 20px;cursor:pointer}
+.btn.sec{background:transparent;color:var(--pri);padding:6px 12px}.btn.x{background:transparent;color:var(--bad);border-color:var(--bd);padding:6px 10px}
+.btn[disabled]{opacity:.5;cursor:wait}
+.note{padding:11px 13px;border-radius:10px;background:color-mix(in srgb,var(--warn) 14%,transparent);margin-bottom:14px}
+.info{padding:11px 13px;border-radius:10px;background:var(--soft);margin-bottom:14px}
+code{background:var(--soft);padding:1px 6px;border-radius:6px}
+#msg{margin-left:12px}#msg.ok{color:var(--ok)}#msg.er{color:var(--bad)}
+.err{color:var(--bad);margin:6px 0 0;white-space:pre-wrap}
+@media (max-width:640px){.f{grid-template-columns:1fr}.f small{grid-column:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Akses NBI</h1>
+  <p class="sub">Atur IP mana saja yang boleh menjangkau NBI GenieACS (dipakai aplikasi Android dan alat luar). Selain yang terdaftar di sini, sambungan ditolak.</p>
+
+  <div class="card">
+    <h2>Status</h2>
+    <div class="hero"><div class="orb" id="orb"></div><div><div class="st" id="st">Memuat…</div><div class="m" id="sub"></div></div></div>
+    <div class="kv" id="kv"></div>
+  </div>
+
+  <div class="info"><b>Port di router vs di server.</b> Aturan di sini membatasi port NBI <b>di server</b> (biasanya <code>7557</code>). Kalau router Anda meneruskan port publik lain, mis. <code>103.191.165.119:798</code> → <code>192.168.54.254:7557</code>, tetap isi <code>7557</code> di sini, dan izinkan <b>IP pengguna</b> (alamat asli pengirim terlihat oleh server).</div>
+
+  <div class="card">
+    <h2>Pengaturan</h2>
+    <div class="f"><label for="en">Batasi akses NBI</label><span><input id="en" type="checkbox"> <span class="m">disarankan; matikan = NBI terbuka untuk semua yang bisa menjangkau server</span></span></div>
+    <div class="f"><label for="port">Port NBI di server</label><input id="port" type="number" min="1" max="65535"><small id="portHelp">Bawaan 7557. Port UI (3000), CWMP (7547), FS (7567), SSH, dan layanan lain tidak bisa dibatasi dari sini.</small></div>
+    <h2 style="margin-top:18px">IP yang diizinkan</h2>
+    <table id="tb"><thead><tr><th style="width:42%">IP atau jaringan</th><th>Keterangan</th><th></th></tr></thead><tbody></tbody></table>
+    <p style="margin:10px 0 0"><button class="btn sec" id="add">+ Tambah IP</button></p>
+    <p class="m" style="margin:10px 0 0">Contoh: <code>114.122.75.181</code> (satu IP), <code>10.8.0.0/24</code> (satu jaringan). Blok yang lebih lebar dari <code>/16</code> ditolak. Jaringan server sendiri (<span id="own">…</span>) dan localhost <b>selalu</b> diizinkan, jadi bot, installer, dan halaman Admin tidak terpengaruh.</p>
+    <div class="err" id="err"></div>
+    <p style="margin:16px 0 0"><button class="btn" id="save">Simpan &amp; terapkan</button><span id="msg"></span></p>
+  </div>
+
+  <div class="card">
+    <h2>Sedang ditolak (24 jam terakhir)</h2>
+    <p class="m" style="margin:0 0 8px">Kalau aplikasi Anda tidak bisa terhubung, IP-nya pasti muncul di sini. Klik <b>Izinkan</b> pada IP yang Anda kenal, lalu <b>Simpan &amp; terapkan</b>. IP yang tidak dikenal biarkan saja.</p>
+    <table id="bl"><thead><tr><th>IP pengirim</th><th>Percobaan</th><th>Terakhir</th><th></th></tr></thead><tbody></tbody></table>
+    <p class="m" id="blEmpty" style="display:none">Tidak ada sambungan yang ditolak.</p>
+  </div>
+</div>
+<script>
+"use strict";
+(function(){
+  var M={"--bg":"--acs-bg","--surface":"--acs-surface","--fg":"--acs-text","--mut":"--acs-muted","--bd":"--acs-border","--pri":"--acs-accent","--soft":"--acs-soft","--on":"--acs-on-accent","--ok":"--acs-ok","--bad":"--acs-bad","--warn":"--acs-warn"};
+  function ap(){var r=document.documentElement;try{var p=parent.document.documentElement,cs=parent.getComputedStyle(p);
+    Object.keys(M).forEach(function(k){var v=cs.getPropertyValue(M[k]).trim();if(v)r.style.setProperty(k,v)});}catch(e){}}
+  ap();try{new MutationObserver(ap).observe(parent.document.documentElement,{attributes:true})}catch(e){}
+})();
+function $(i){return document.getElementById(i)}
+function api(method,path,body){
+  return fetch(path,{method:method,credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.text().then(function(t){
+      if(r.status===401||r.status===403)throw new Error("Tidak diizinkan (login GenieACS sebagai admin dulu)");
+      if(!r.ok)throw new Error("HTTP "+r.status+" "+t.slice(0,120));
+      return t?JSON.parse(t):null})});
+}
+function plain(v){v=String(v==null?"":v).trim();return v.length>=2&&v[0]==="'"&&v[v.length-1]==="'"?v.slice(1,-1):v}
+function b64e(o){return btoa(unescape(encodeURIComponent(JSON.stringify(o))))}
+function b64d(s){try{return JSON.parse(decodeURIComponent(escape(atob(s))))}catch(e){return null}}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+var ICO={ok:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z'/><path d='M8.5 12.5l2.5 2.5 4.5-5'/></svg>",
+  off:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z'/><path d='M9 9l6 6M15 9l-6 6'/></svg>",
+  na:"<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'/><path d='M12 8v5M12 16h.01'/></svg>"};
+var cfg=null,dirty=false,sent=null,own=[];
+function setSt(kind,icon,t,sub){$("orb").className="orb "+kind;$("orb").innerHTML=ICO[icon];$("st").textContent=t;$("sub").textContent=sub||""}
+function ago(ms){var s=Math.max(0,Math.round((Date.now()-ms)/1000));return s<60?s+" dtk lalu":s<3600?Math.round(s/60)+" mnt lalu":Math.round(s/3600)+" jam lalu"}
+function kv(a){$("kv").innerHTML=a.map(function(x){return "<div><b>"+esc(x[0])+"</b>"+esc(x[1])+"</div>"}).join("")}
+
+// ----- tabel IP -----
+function row(c,n){var tr=document.createElement("tr");
+  tr.innerHTML="<td><input type='text' class='c' maxlength='18' placeholder='114.122.75.181'></td><td><input type='text' class='n' maxlength='60' placeholder='mis. HP admin'></td><td class='n'><button class='btn x' title='Hapus'>Hapus</button></td>";
+  tr.querySelector(".c").value=c||"";tr.querySelector(".n").value=n||"";
+  tr.querySelector(".btn").onclick=function(){tr.remove();dirty=true};
+  Array.prototype.forEach.call(tr.querySelectorAll("input"),function(i){i.oninput=function(){dirty=true;i.classList.remove("bad")}});
+  $("tb").tBodies[0].appendChild(tr);return tr}
+$("add").onclick=function(){dirty=true;row("","").querySelector(".c").focus()};
+["en","port"].forEach(function(i){$(i).onchange=$(i).oninput=function(){dirty=true}});
+function fill(c){$("en").checked=!!c.enabled;$("port").value=c.port||7557;$("tb").tBodies[0].innerHTML="";(c.allow||[]).forEach(function(x){row(x.c,x.n)});dirty=false}
+function ip4ok(s){var m=/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?:\/(\d{1,2}))?$/.exec(s.trim());if(!m)return false;
+  for(var i=1;i<=4;i++){if(+m[i]>255||(m[i].length>1&&m[i][0]==="0"))return false}
+  var n=m[5]===undefined?32:+m[5];return n>=16&&n<=32&&+m[1]>0}
+
+// ----- muat & polling -----
+function get(){return api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "nbi.fw.%"')).then(function(rows){var o={};(rows||[]).forEach(function(r){o[r._id]=plain(r.value)});return o})}
+function render(o){
+  var st=o["nbi.fw.status"]?b64d(o["nbi.fw.status"]):null,c=o["nbi.fw.cfg"]?b64d(o["nbi.fw.cfg"]):null;
+  if(c&&!cfg){cfg=c;fill(c)}else if(c&&!dirty&&JSON.stringify(c)!==JSON.stringify(cfg)){cfg=c;fill(c)}
+  if(!st||Date.now()-st.at>90000){
+    setSt("er","na",st?"Layanan penerap tidak menjawab":"Layanan penerap belum dipasang",st?"Status terakhir "+ago(st.at)+". Cek: systemctl status genieacs-nbi-guard":"Jalankan di server: bash scripts/setup-nbi-guard.sh (butuh sudo). Perubahan di halaman ini baru berlaku setelah layanan jalan.");
+    kv([]);$("save").disabled=false;return}
+  own=st.own||[];$("own").textContent=own.length?own.join(", "):"-";
+  if(!st.enabled)setSt("wr","off","Pembatasan MATI","Port "+st.port+" terbuka untuk semua yang bisa menjangkau server. Centang \"Batasi akses NBI\" lalu simpan.");
+  else if(!st.active)setSt("er","off","Pembatasan seharusnya aktif tetapi aturan tidak ada","Layanan mencoba memasangnya ulang otomatis; lihat hasil terakhir di bawah.");
+  else setSt("ok","ok","Pembatasan AKTIF","Port "+st.port+" hanya untuk localhost, jaringan server sendiri, dan "+(st.allow||[]).length+" IP terdaftar.");
+  var bl=(st.blocked||[]).reduce(function(a,b){return a+b.count},0);
+  kv([["Port di server",st.port+(st.listen?" (NBI mendengarkan)":" (tidak ada yang mendengarkan)")],["IP diizinkan",String((st.allow||[]).length)],["Ditolak 24 jam",bl+" percobaan / "+(st.blocked||[]).length+" IP"],["Diperbarui",ago(st.at)]]);
+  // hasil penerapan
+  if(sent&&st.result&&st.result.rev>=sent.rev){$("msg").className=st.result.ok?"ok":"er";$("msg").textContent=(st.result.ok?"✓ ":"✕ ")+st.result.msg;sent=null;$("save").disabled=false}
+  else if(!sent&&st.result&&!st.result.ok){$("msg").className="er";$("msg").textContent="✕ "+st.result.msg}
+  // daftar ditolak
+  var tb=$("bl").tBodies[0];tb.innerHTML="";var have={};Array.prototype.forEach.call($("tb").querySelectorAll(".c"),function(i){have[i.value.trim().replace(/\/32$/,"")]=1});
+  (st.blocked||[]).forEach(function(b){var tr=document.createElement("tr"),ok=have[b.ip];
+    tr.innerHTML="<td><code>"+esc(b.ip)+"</code></td><td>"+b.count+"</td><td>"+esc(ago(b.last))+"</td><td class='n'>"+(ok?"<span class='m'>sudah di daftar</span>":"<button class='btn sec'>Izinkan</button>")+"</td>";
+    var bt=tr.querySelector("button");if(bt)bt.onclick=function(){dirty=true;row(b.ip,"dari daftar ditolak");bt.parentNode.innerHTML="<span class='m'>ditambahkan, klik Simpan</span>"};
+    tb.appendChild(tr)});
+  $("blEmpty").style.display=(st.blocked||[]).length?"none":"block";$("bl").style.display=(st.blocked||[]).length?"table":"none";
+}
+function tick(){get().then(render).catch(function(e){setSt("er","na","Gagal memuat",e.message)})}
+
+// ----- simpan -----
+$("save").onclick=function(){
+  $("err").textContent="";$("msg").textContent="";var bad=[],allow=[];
+  Array.prototype.forEach.call($("tb").tBodies[0].rows,function(tr){var c=tr.querySelector(".c"),n=tr.querySelector(".n");if(!c.value.trim()&&!n.value.trim())return;
+    if(!ip4ok(c.value)){c.classList.add("bad");bad.push(c.value||"(kosong)")}else allow.push({c:c.value.trim(),n:n.value.trim()})});
+  var port=parseInt($("port").value,10);
+  if(!(port>=1&&port<=65535))bad.push("port "+$("port").value);
+  if(bad.length){$("err").textContent="Tidak valid: "+bad.join(", ")+"\nPakai IPv4 seperti 114.122.75.181 atau 10.8.0.0/24 (blok lebih lebar dari /16 ditolak).";return}
+  var en=$("en").checked;
+  if(!en&&!confirm("Mematikan pembatasan membuka NBI untuk SEMUA yang bisa menjangkau server (tanpa login, sandi WiFi pelanggan terbaca). Lanjutkan?"))return;
+  var c={enabled:en,port:port,allow:allow,rev:Date.now()};
+  $("save").disabled=true;$("msg").className="";$("msg").textContent="Menyimpan…";sent={rev:c.rev};
+  api("PUT","/api/config/nbi.fw.cfg",{_id:"nbi.fw.cfg",value:"'"+b64e(c)+"'"}).then(function(){cfg=c;dirty=false;$("msg").textContent="Menunggu layanan menerapkan…";
+    setTimeout(function(){if(sent){$("save").disabled=false;$("msg").className="er";$("msg").textContent="Belum ada jawaban dari layanan penerap (cek genieacs-nbi-guard).";sent=null}},40000)})
+    .catch(function(e){sent=null;$("save").disabled=false;$("msg").className="er";$("msg").textContent="✕ "+e.message});
+};
+tick();setInterval(tick,3000);
+</script>
+</body>
+</html>

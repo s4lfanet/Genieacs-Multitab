@@ -13,6 +13,7 @@
 #   bash scripts/nbi-firewall.sh                       # status saja (tidak mengubah apa pun)
 #   bash scripts/nbi-firewall.sh --apply               # terapkan: localhost + subnet server sendiri
 #   bash scripts/nbi-firewall.sh --apply --allow 10.8.0.0/24 --allow 192.168.88.5/32     # tambah jaringan/VPN yang boleh
+#   bash scripts/nbi-firewall.sh --set --allow 114.122.75.181/32   # GANTI daftar izin (bukan menggabung); dipakai halaman Admin -> Akses NBI
 #   bash scripts/nbi-firewall.sh --remove              # cabut semuanya (kembali seperti semula)
 #
 # Pengaman: setelah --apply skrip menguji localhost dan IP server sendiri; bila gagal, aturan dicabut otomatis.
@@ -23,12 +24,12 @@ set -euo pipefail
 PORT="${NBI_PORT:-7557}"; CHAIN="GM_NBI_$PORT"; AUTO="${GM_NBI_AUTO:-1}"
 CONF_DIR=/etc/genieacs-multitab; ALLOW_FILE="$CONF_DIR/nbi-allow-$PORT.conf"
 LIB=/usr/local/lib/genieacs-multitab; UNIT=genieacs-nbi-firewall.service
-MODE=status; UNITMODE=1; ALLOW=()
+MODE=status; UNITMODE=1; ALLOW=(); REPLACE=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --apply) MODE=apply; shift ;; --remove) MODE=remove; shift ;; --status) MODE=status; shift ;;
+    --apply) MODE=apply; shift ;; --set) MODE=apply; REPLACE=1; shift ;; --remove) MODE=remove; shift ;; --status) MODE=status; shift ;;
     --boot) MODE=boot; shift ;; --boot-stop) MODE=bootstop; shift ;; --allow) ALLOW+=("${2:?--allow butuh CIDR}"); shift 2 ;; --no-unit) UNITMODE=0; shift ;;
-    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     *) echo "Opsi tidak dikenal: $1 (lihat --help)"; exit 2 ;;
   esac
 done
@@ -102,7 +103,7 @@ esac
 for c in "${ALLOW[@]}"; do cidr_ok "$c" || { echo "ERROR: CIDR tidak valid: $c"; exit 2; }; done
 declare -A SEEN; LIST=()
 add() { [ -n "${SEEN[$1]:-}" ] || { SEEN[$1]=1; LIST+=("$1"); }; }
-while read -r c; do [ -n "$c" ] && add "$c"; done < <(load_allow)
+[ "$REPLACE" = 1 ] || while read -r c; do [ -n "$c" ] && add "$c"; done < <(load_allow)
 [ "$AUTO" = 1 ] && while read -r c; do [ -n "$c" ] && add "$c"; done < <(own_subnets)
 for c in "${ALLOW[@]}"; do add "$c"; done
 echo "== izinkan ke port $PORT: localhost + ${LIST[*]:-(tidak ada tambahan)}"
@@ -119,7 +120,7 @@ if [ "$AUTO" = 1 ]; then for ip in $(ip -4 -o addr show scope global | awk '{pri
 if [ $ok = 0 ]; then echo "!! uji gagal -> aturan dicabut"; unbuild; rm -f "$ALLOW_FILE"; exit 1; fi
 
 if [ $UNITMODE = 1 ] && [ "$PORT" = 7557 ]; then
-  mkdir -p "$LIB"; install -m 755 "$0" "$LIB/nbi-firewall.sh"
+  mkdir -p "$LIB"; [ "$0" -ef "$LIB/nbi-firewall.sh" ] || install -m 755 "$0" "$LIB/nbi-firewall.sh"
   cat > "/etc/systemd/system/$UNIT" <<EOF
 [Unit]
 Description=Batasi akses NBI GenieACS (port $PORT) ke jaringan tepercaya
