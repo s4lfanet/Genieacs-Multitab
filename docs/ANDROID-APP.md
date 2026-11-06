@@ -41,6 +41,10 @@ Diuji di emulator Android (API 36) terhadap server tiruan yang meniru NBI 7557 d
 - Detail ONT menampilkan Rx dan **Tx** (VP `TXPower` "2.66 dBm" tampil "2.7 dBm"), IP PPPoE, MAC, tag, dan koordinat dari tag `LOC_`; **Summon** mengirim `refreshObject` dengan `objectName` kosong; **Peta** memuat "Terpetakan: 1" dari tag tersebut.
 - Belum diuji: ubah WiFi/WAN/akun admin terhadap ONT sungguhan, asisten suara, dan GPS.
 
+## APK terbaru: lambat dan keluar sendiri (perbaikan di server)
+
+Versi terbaru meminta seluruh cabang VirtualParameters/WAN/WLAN semua ONT sekaligus (±41 MB untuk 635 ONT, dua kali saat connect). Itu menghabiskan memori aplikasi (`OutOfMemoryError`) dan membuatnya keluar sendiri, terutama saat ganti tema atau tes koneksi. Perbaikannya ada di sisi server tanpa mengubah APK: lihat [NBI-SLIM.md](NBI-SLIM.md) (`scripts/setup-nbi-slim.sh`, port 7560).
+
 ## Cara menghubungkan
 
 1. Ponsel harus menjangkau **dua port di host yang sama**: NBI `IP:7557` (data) **dan** UI `IP:3000` (login). Aplikasi mengambil host dari alamat server yang Anda isi dan **memaksa port 3000** untuk login, sehingga tidak bisa dipakai lewat Cloudflare Tunnel atau reverse proxy satu port.

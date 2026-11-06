@@ -1,0 +1,20 @@
+[Unit]
+Description=GenieACS gerbang NBI untuk aplikasi Android (kecilkan jawaban + login akun UI)
+After=network-online.target genieacs-nbi.service genieacs-ui.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Tidak butuh root: port > 1024, hanya bicara ke 127.0.0.1 (NBI & UI)
+DynamicUser=yes
+ExecStart=/usr/bin/env node /usr/local/lib/genieacs-multitab/nbi-slim.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+MemoryMax=600M
+
+[Install]
+WantedBy=multi-user.target
