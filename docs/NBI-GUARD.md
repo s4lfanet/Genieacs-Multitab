@@ -39,6 +39,8 @@ bash scripts/ui-admin-menu.sh --all --portal --nbi # menu Admin -> Akses NBI (up
 
 Aman untuk server yang sudah memakai `nbi-firewall.sh`: saat pertama jalan, layanan **membaca firewall yang ada** dan mengimpornya ke halaman tanpa mengubah apa pun. Setelah repo diperbarui, jalankan `setup-nbi-guard.sh` lagi untuk memperbarui layanan.
 
+**Lewat tombol Update (Admin → Update):** updater memasang penjaga NBI otomatis bila belum ada (dan memperbaruinya bila filenya berubah di GitHub), lalu memasang menu Akses NBI. Updater yang sudah lama berjalan memuat kode lama, jadi setelah pembaruan pertama updater memulai ulang dirinya; tekan **Pasang ulang** sekali lagi untuk menyelesaikan pemasangan penjaga dan menu.
+
 Copot layanan: `bash scripts/setup-nbi-guard.sh --remove` (firewall yang aktif dibiarkan).
 
 ## Hal lain yang perlu dicek bila aplikasi Android (Alijaya) masih gagal
