@@ -1,5 +1,6 @@
 // SALFA NET TXPower: daya optik pancar ONT (TX), dalam dBm, lintas merek.
-// Dibaca oleh aplikasi Android (Genieacs.apk). Pasangan dari VP RXPower dengan jalur yang sama untuk TX.
+// Dibaca oleh aplikasi Android (SentraACS, Genieacs.apk). Pasangan dari VP RXPower dengan jalur yang sama untuk TX.
+// Keluaran angka dua desimal sebagai string ("2.46") atau "N/A", sama seperti RXPower; satuan ditampilkan di UI.
 //
 // Satuan berbeda per merek: sebagian sudah dBm ("2.66", "2.086048  dBm"), sebagian satuan 0,1 µW (mis. 17619 = 2,46 dBm).
 // Nilai dengan |x| > 100 dianggap satuan 0,1 µW dan diubah ke dBm; lainnya dianggap sudah dBm.
@@ -40,5 +41,5 @@ for (let i = 0; i < paths.length && m === "N/A"; i++) {
 
 return {
   writable: false,
-  value: [m === "N/A" ? "N/A" : m + " dBm", "xsd:string"]
+  value: [m === "N/A" ? "N/A" : m.toFixed(2), "xsd:string"]
 };

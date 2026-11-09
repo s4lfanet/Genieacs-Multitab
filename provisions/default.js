@@ -81,6 +81,7 @@ const cdata = declare('InternetGatewayDevice.WANDevice.1.X_CT-COM_EponInterfaceC
 if (merk !== 'ZIONCOM') {
   declare("VirtualParameters.IPTR069", {path: hourly, value: hourly});
   declare("VirtualParameters.RXPower", {path: update, value: update});
+  declare("VirtualParameters.redaman", {path: update, value: update});   // app Android (SentraACS)
   declare("VirtualParameters.TXPower", {path: hourly, value: hourly});   // app Android (Genieacs.apk)
   declare("VirtualParameters.gettemp", {path: minutes, value: minutes});
   declare("VirtualParameters.activedevices", {path: update, value: update});
