@@ -298,6 +298,7 @@ const EXTRA = [
   { id: "bot", label: "Bot Telegram", unit: "genieacs-bot" },
   { id: "wabot", label: "Bot WhatsApp", unit: "genieacs-wa-bot" },
   { id: "updater", label: "Updater", unit: "genieacs-multitab-updater" },
+  { id: "nbiguard", label: "Penjaga NBI", unit: "genieacs-nbi-guard" },   // detak jantung untuk halaman Akses NBI
   { id: "tunnel", label: "Cloudflare Tunnel", unit: "cloudflared" },
   { id: "nbiproxy", label: "Proxy NBI (tunnel)", unit: "genieacs-nbi-proxy" }
 ];

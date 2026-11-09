@@ -2,7 +2,7 @@
 // Uji validasi & parser penjaga NBI (scripts/nbi-guard.js): node tools/test-nbi-guard.js. Tanpa root/iptables/MongoDB.
 "use strict";
 const path = require("path");
-const { ip4, validate, sig, parseBlocked, netOf, RESERVED } = require(path.join(__dirname, "..", "scripts", "nbi-guard.js"));
+const { ip4, validate, sig, parseBlocked, netOf, RESERVED, shouldPublish, BLOCKED_EVERY } = require(path.join(__dirname, "..", "scripts", "nbi-guard.js"));
 let pass = 0, fail = 0;
 const eq = (a, b, n) => { const ok = JSON.stringify(a) === JSON.stringify(b); ok ? pass++ : fail++; console.log((ok ? "  PASS  " : "  FAIL  ") + n + (ok ? "" : " (dapat " + JSON.stringify(a) + ", mau " + JSON.stringify(b) + ")")); };
 
@@ -60,6 +60,15 @@ eq(parseBlocked(log, 7599).map((x) => x.ip), ["9.9.9.9"], "port lain terpisah");
 
 console.log("T6 netOf: bandingkan subnet server sendiri");
 eq([netOf("192.168.54.254/24"), netOf("10.8.0.3/24"), netOf("1.2.3.4/32"), netOf("172.16.5.9/16")], ["192.168.54.0/24", "10.8.0.0/24", "1.2.3.4/32", "172.16.0.0/16"], "alamat host -> alamat jaringan");
+
+console.log("T7 shouldPublish: Config hanya ditulis bila status berubah (cegah banner 'please reload' terus-menerus)");
+const T0 = 1000000000000, E = BLOCKED_EVERY;
+eq(shouldPublish("A", "b1", T0, { core: null, blocked: null, at: 0 }), true, "pertama kali: tulis");
+eq(shouldPublish("A", "b1", T0 + 20000, { core: "A", blocked: "b1", at: T0 }), false, "tidak berubah: tidak ditulis (dulu ditulis tiap 20 dtk)");
+eq(shouldPublish("A", "b1", T0 + 7 * 86400000, { core: "A", blocked: "b1", at: T0 }), false, "tidak berubah lama sekali: tetap tidak ditulis");
+eq(shouldPublish("B", "b1", T0 + 1000, { core: "A", blocked: "b1", at: T0 }), true, "status inti berubah: langsung ditulis");
+eq(shouldPublish("A", "b2", T0 + 60000, { core: "A", blocked: "b1", at: T0 }), false, "hanya daftar ditolak berubah, < 10 mnt: ditahan");
+eq(shouldPublish("A", "b2", T0 + E, { core: "A", blocked: "b1", at: T0 }), true, "hanya daftar ditolak berubah, >= 10 mnt: ditulis");
 
 console.log("\nHASIL: PASS=" + pass + " FAIL=" + fail);
 process.exit(fail ? 1 : 0);
