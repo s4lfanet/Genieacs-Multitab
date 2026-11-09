@@ -132,15 +132,30 @@ async function applyCfg(c) {
   return { ok: true, msg: "diterapkan: " + c.allow.length + " sumber diizinkan + jaringan server sendiri + localhost" };
 }
 
+// Config "nbi.fw.status" HANYA ditulis bila isinya berubah. Setiap tulisan ke Config membuat UI GenieACS memunculkan
+// "Configuration has been modified, please reload the page" di semua browser yang terbuka; dulu status (berisi `at`)
+// ditulis tiap 20 detik sehingga banner itu muncul terus. Detak jantung layanan kini dibaca halaman dari file status
+// updater (unit genieacs-nbi-guard), bukan dari umur `at`.
+// Perubahan yang hanya pada daftar IP ditolak (jumlah percobaan) ditulis paling sering sekali per BLOCKED_EVERY.
+const BLOCKED_EVERY = 10 * 60000;
+const pubState = { core: null, blocked: null, at: 0 };
+function shouldPublish(core, blocked, now, ps) {
+  if (ps.core !== core) return true;
+  return ps.blocked !== blocked && now - ps.at >= BLOCKED_EVERY;
+}
 async function publish(c, extra) {
   const blockedTxt = (await run("journalctl", ["-k", "--since", "-24h", "--no-pager", "-o", "short-unix"], null, 30000)).out;
   const st = {
-    at: Date.now(), enabled: c.enabled, port: c.port, active: await chainActive(c.port),
-    allow: c.allow, own: (await ownSubnets()), blocked: parseBlocked(blockedTxt, c.port), result: lastResult, rev: c.rev,
+    enabled: c.enabled, port: c.port, active: await chainActive(c.port),
+    allow: c.allow, own: (await ownSubnets()), result: lastResult, rev: c.rev,
     listen: (await run("ss", ["-Htln", "( sport = :" + c.port + " )"])).out.trim() !== ""
   };
   if (extra) Object.assign(st, extra);
-  await setKey("nbi.fw.status", enc(st));
+  const blocked = parseBlocked(blockedTxt, c.port);
+  const core = JSON.stringify(st), bsig = JSON.stringify(blocked), now = Date.now();
+  if (!shouldPublish(core, bsig, now, pubState)) return;
+  await setKey("nbi.fw.status", enc(Object.assign({ at: now }, st, { blocked: blocked })));
+  pubState.core = core; pubState.blocked = bsig; pubState.at = now;
 }
 
 async function tick(state) {
@@ -189,5 +204,5 @@ async function main() {
     await new Promise((r) => setTimeout(r, 5000));
   }
 }
-module.exports = { ip4, validate, sig, parseBlocked, netOf, RESERVED };
+module.exports = { ip4, validate, sig, parseBlocked, netOf, RESERVED, shouldPublish, BLOCKED_EVERY };
 if (require.main === module) main();

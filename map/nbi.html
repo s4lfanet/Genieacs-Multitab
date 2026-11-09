@@ -117,15 +117,15 @@ function get(){return api("GET","/api/config/?filter="+encodeURIComponent('_id L
 function render(o){
   var st=o["nbi.fw.status"]?b64d(o["nbi.fw.status"]):null,c=o["nbi.fw.cfg"]?b64d(o["nbi.fw.cfg"]):null;
   if(c&&!cfg){cfg=c;fill(c)}else if(c&&!dirty&&JSON.stringify(c)!==JSON.stringify(cfg)){cfg=c;fill(c)}
-  if(!st||Date.now()-st.at>90000){
-    setSt("er","na",st?"Layanan penerap tidak menjawab":"Layanan penerap belum dipasang",st?"Status terakhir "+ago(st.at)+". Cek: systemctl status genieacs-nbi-guard":"Jalankan di server: bash scripts/setup-nbi-guard.sh (butuh sudo). Perubahan di halaman ini baru berlaku setelah layanan jalan.");
+  if(!st||guard===false){
+    setSt("er","na",st?"Layanan penerap tidak berjalan":"Layanan penerap belum dipasang",st?"Status terakhir berubah "+ago(st.at)+". Cek: systemctl status genieacs-nbi-guard":"Jalankan di server: bash scripts/setup-nbi-guard.sh (butuh sudo). Perubahan di halaman ini baru berlaku setelah layanan jalan.");
     kv([]);$("save").disabled=false;return}
   own=st.own||[];$("own").textContent=own.length?own.join(", "):"-";
   if(!st.enabled)setSt("wr","off","Pembatasan MATI","Port "+st.port+" terbuka untuk semua yang bisa menjangkau server. Centang \"Batasi akses NBI\" lalu simpan.");
   else if(!st.active)setSt("er","off","Pembatasan seharusnya aktif tetapi aturan tidak ada","Layanan mencoba memasangnya ulang otomatis; lihat hasil terakhir di bawah.");
   else setSt("ok","ok","Pembatasan AKTIF","Port "+st.port+" hanya untuk localhost, jaringan server sendiri, dan "+(st.allow||[]).length+" IP terdaftar.");
   var bl=(st.blocked||[]).reduce(function(a,b){return a+b.count},0);
-  kv([["Port di server",st.port+(st.listen?" (NBI mendengarkan)":" (tidak ada yang mendengarkan)")],["IP diizinkan",String((st.allow||[]).length)],["Ditolak 24 jam",bl+" percobaan / "+(st.blocked||[]).length+" IP"],["Diperbarui",ago(st.at)]]);
+  kv([["Port di server",st.port+(st.listen?" (NBI mendengarkan)":" (tidak ada yang mendengarkan)")],["IP diizinkan",String((st.allow||[]).length)],["Ditolak 24 jam",bl+" percobaan / "+(st.blocked||[]).length+" IP"],["Status berubah",ago(st.at)]]);
   // hasil penerapan
   if(sent&&st.result&&st.result.rev>=sent.rev){$("msg").className=st.result.ok?"ok":"er";$("msg").textContent=(st.result.ok?"✓ ":"✕ ")+st.result.msg;sent=null;$("save").disabled=false}
   else if(!sent&&st.result&&!st.result.ok){$("msg").className="er";$("msg").textContent="✕ "+st.result.msg}
@@ -137,7 +137,23 @@ function render(o){
     tb.appendChild(tr)});
   $("blEmpty").style.display=(st.blocked||[]).length?"none":"block";$("bl").style.display=(st.blocked||[]).length?"table":"none";
 }
-function tick(){get().then(render).catch(function(e){setSt("er","na","Gagal memuat",e.message)})}
+// Detak jantung penjaga: status unit genieacs-nbi-guard dari file status updater (Config sys.file), bukan umur st.at.
+// nbi-guard sengaja hanya menulis Config bila status berubah (tiap tulisan Config memunculkan banner "please reload").
+// guard: true = berjalan, false = unit tidak aktif, null = tidak diketahui (updater lama/tidak ada) -> tidak dianggap mati.
+var sysFile="",guard=null;
+function guardCheck(){
+  var p=sysFile?Promise.resolve(sysFile):api("GET","/api/config/?filter="+encodeURIComponent('_id LIKE "sys.file"')).then(function(r){
+    sysFile=r&&r[0]?plain(r[0].value):"";return sysFile});
+  return p.then(function(n){
+    if(!/^sys-[0-9a-f]{24}\.json$/.test(n))return null;
+    return fetch("/"+n+"?_="+Date.now(),{cache:"no-store",credentials:"same-origin"}).then(function(r){return r.ok?r.json():null})
+  }).then(function(o){
+    if(!o||!o.sys||!o.sys.extra||Date.now()-o.hb>120000)return null;
+    var u=o.sys.extra.filter(function(x){return x.id==="nbiguard"})[0];
+    return u?u.active==="active":null
+  }).catch(function(){return null}).then(function(v){guard=v});
+}
+function tick(){guardCheck().then(get).then(render).catch(function(e){setSt("er","na","Gagal memuat",e.message)})}
 
 // ----- simpan -----
 $("save").onclick=function(){
