@@ -1,103 +1,44 @@
-// ALIJAYA-NET
-let m = "N/A";
-let db = "";
-let zte = declare("InternetGatewayDevice.WANDevice.*.X_ZTE-COM_WANPONInterfaceConfig.RXPower", {value: Date.now()});
-let huawei = declare("InternetGatewayDevice.WANDevice.*.X_GponInterafceConfig.RXPower", {value: Date.now()});
-let fiberhome = declare("InternetGatewayDevice.WANDevice.*.X_FH_GponInterfaceConfig.RXPower", {value: Date.now()});
-let nokia = declare("InternetGatewayDevice.X_ALU_OntOpticalParam.RXPower", {value: Date.now()});
-let ztecmcc = declare("InternetGatewayDevice.WANDevice.*.X_CMCC_EponInterfaceConfig.RXPower" , {value: Date.now()});
-let ztecmcg = declare("InternetGatewayDevice.WANDevice.*.X_CMCC_GponInterfaceConfig.RXPower" , {value: Date.now()});
-let gm220se = declare("InternetGatewayDevice.WANDevice.*.X_CT-COM_EponInterfaceConfig.RXPower" , {value: Date.now()});
-let gm220sg = declare("InternetGatewayDevice.WANDevice.*.X_CT-COM_GponInterfaceConfig.RXPower" , {value: Date.now()});
-let f477v2 = declare("InternetGatewayDevice.WANDevice.*.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.RXPower"	, {value: Date.now()});
+// SALFA NET redaman: sama persis dengan VP RXPower (angka dBm "-14.00" atau "N/A").
+// Nama "redaman" dipakai aplikasi Android bergaya Alijaya (SentraACS, Genieacs.apk); harus di-declare di provision default.
+//
+// Satuan mentah berbeda per merek:
+//   - sudah dBm: Huawei (-14), FiberHome ("-20.41"), ZTE F6xx ("-16.99"), C-Data/CDTC ("-10.700704  dBm")
+//   - 0,1 µW: ZTE/ZICG EPON CMCC/CT-COM (676 = -11.70 dBm), CIOT GM220-S (523)
+//   - 0,01 dBm: sebagian OEM (-1450 = -14.50 dBm)
+const paths = [
+  "InternetGatewayDevice.DeviceInfo.XponInterface.RXPower",                                     // C-Data
+  "InternetGatewayDevice.WANDevice.*.X_GponInterafceConfig.RXPower",                            // Huawei (ejaan vendor "Interafce")
+  "InternetGatewayDevice.WANDevice.*.X_ZTE-COM_WANPONInterfaceConfig.RXPower",                  // ZTE F670L / F679D
+  "InternetGatewayDevice.WANDevice.*.X_FH_GponInterfaceConfig.RXPower",                         // FiberHome
+  "InternetGatewayDevice.WANDevice.*.X_CMCC_EponInterfaceConfig.RXPower",                       // ZTE F609 / F663 (EPON)
+  "InternetGatewayDevice.WANDevice.*.X_CMCC_GponInterfaceConfig.RXPower",                       // ZTE CMCC (GPON)
+  "InternetGatewayDevice.WANDevice.*.X_CT-COM_EponInterfaceConfig.RXPower",                     // CT-COM EPON, CDTC, ZICG, GM220
+  "InternetGatewayDevice.WANDevice.*.X_CT-COM_GponInterfaceConfig.RXPower",                     // CT-COM GPON, HSGQ
+  "InternetGatewayDevice.WANDevice.*.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.RXPower",   // ZTE F477 / F677
+  "InternetGatewayDevice.X_ALU_OntOpticalParam.RXPower"                                         // Nokia / Alcatel-Lucent
+];
 
-if (zte.size) {
-   let zteval = zte.value[0]
-   if (zteval < 0) {
-      m = zteval;
-      
-    }
-    else if (zteval > 0) {
-      db = 30 + (Math.log10((zteval * (Math.pow(10,-7))))*10);
-	  m = Math.ceil(db * 100) / 100;
-    }
+function toDbm(v) {
+  if (v === undefined || v === null || v === "") return null;
+  let n = parseFloat(String(v).replace(/[^0-9.+\-eE]/g, ""));
+  if (isNaN(n) || n === 0) return null;
+  if (n <= -50) n = n / 100;                                  // 0,01 dBm
+  else if (n > 0) n = 30 + Math.log10(n * 1e-7) * 10;         // 0,1 µW
+  if (!isFinite(n) || n < -50 || n > 10) return null;
+  return n;
 }
-else if (ztecmcc.size) {
-   let zteval = ztecmcc.value[0]
-   if (zteval < 0) {
-      m = zteval;
-      
-    }
-    else if (zteval > 0) {
-      db = 30 + (Math.log10((zteval * (Math.pow(10,-7))))*10);
-	  m = Math.ceil(db * 100) / 100;
-    }
-}
-else if (ztecmcg.size) {
-   let zteval = ztecmcg.value[0]
-   if (zteval < 0) {
-      m = zteval;
-      
-    }
-    else if (zteval > 0) {
-      db = 30 + (Math.log10((zteval * (Math.pow(10,-7))))*10);
-	  m = Math.ceil(db * 100) / 100;
-    }
-}
-else if (gm220se.size) {
-   let zteval = gm220se.value[0]
-   if (zteval < 0) {
-      m = zteval;
-      
-    }
-    else if (zteval > 0) {
-      db = 30 + (Math.log10((zteval * (Math.pow(10,-7))))*10);
-	  m = Math.ceil(db * 100) / 100;
-    }
-}
-else if (gm220sg.size) {
-   let zteval = gm220sg.value[0]
-   if (zteval < 0) {
-      m = zteval;
-      
-    }
-    else if (zteval > 0) {
-      db = 30 + (Math.log10((zteval * (Math.pow(10,-7))))*10);
-	  m = Math.ceil(db * 100) / 100;
-    }
-}
-else if (f477v2.size) {
-   let zteval = f477v2.value[0]
-   if (zteval < 0) {
-      m = zteval;
-      
-    }
-    else if (zteval > 0) {
-      db = 30 + (Math.log10((zteval * (Math.pow(10,-7))))*10);
-	  m = Math.ceil(db * 100) / 100;
-    }
-}
-else if (huawei.size) {
-  for (let p of huawei) {
-    if (p.value[0]) {
-      m = p.value[0];
-      break;
-    }
-  }
-}
-else if (fiberhome.size) {
-  for (let p of fiberhome) {
-    if (p.value[0]) {
-      m = p.value[0];
-      break;
-    }
-  }
-}
-else if (nokia.size) {
-  // Nokia/ALCL: sudah dalam dBm (string, mis. "-15.606673")
-  if (nokia.value[0]) {
-    m = Math.round(parseFloat(nokia.value[0]) * 100) / 100;
-  }
-}
-return {writable: false, value: [m, "xsd:string"]};
 
+let m = null;
+for (let i = 0; i < paths.length && m === null; i++) {
+  const d = declare(paths[i], {value: Date.now()});
+  for (let p of d) {
+    const raw = Array.isArray(p.value[0]) ? p.value[0][0] : p.value[0];
+    const dbm = toDbm(raw);
+    if (dbm !== null) { m = dbm; break; }
+  }
+}
+
+return {
+  writable: false,
+  value: [m === null ? "N/A" : (Math.round(m * 100) / 100).toFixed(2), "xsd:string"]
+};
